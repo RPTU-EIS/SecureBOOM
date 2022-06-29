@@ -892,10 +892,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     val ldq_idx = Mux(will_fire_load_incoming(w), ldq_incoming_idx(w), ldq_retry_idx)
 
-    // set failure bit for PFs detected in TLB or MAs in incoming loads with priority
+    // set failure bit for PFs detected in TLB or MAs 
     when (will_fire_load_incoming(w) || will_fire_load_retry(w))
     {
-      ldq(ldq_idx).bits.failure := ((will_fire_load_incoming(w) && (ma_ld(w) || pf_ld(w))) || (will_fire_load_retry(w) && pf_ld(w)))
+      ldq(ldq_idx).bits.failure := (ma_ld(w) || pf_ld(w))
     }
 
     //##################################################################################################################
