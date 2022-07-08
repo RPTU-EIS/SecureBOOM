@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 08/07/2022 (Meltdown Fix + STT)
 
 package boom.lsu
 
@@ -539,7 +539,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !p2_block_load_mask(ldq_wakeup_idx)                      &&
                               !store_needs_order                                       &&
                               !block_load_wakeup                                       &&
-                              !ldq_wakeup_e.bits.failure                               && // added by mofadiheh for meltdown fix
                               (w == memWidth-1).B                                      &&
                               (!ldq_wakeup_e.bits.addr_is_uncacheable || (io.core.commit_load_at_rob_head &&
                                                                           ldq_head === ldq_wakeup_idx &&
@@ -710,10 +709,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   // exceptions
   // ---
-  // modified by mofadiheh for STT
+  // modified by mofadiheh for STT and Meltdown Fix
   // val ma_ld = widthMap(w => will_fire_load_incoming(w) && exe_req(w).bits.mxcpt.valid) // We get ma_ld in memaddrcalc
   val ma_ld = widthMap(w => ((will_fire_load_incoming(w) && exe_req(w).bits.mxcpt.valid) || // We get ma_ld in memaddrcalc
-                              (will_fire_load_retry(w) && ldq(ldq_retry_idx).bits.failure))) // Came in with a ma_ld but didn't get priority
+                              (will_fire_load_retry(w) && ldq(ldq_retry_idx).bits.failure) ||
+                                (will_fire_load_wakeup(w) && ldq(ldq_wakeup_idx).bits.failure))) // Came in with a ma_ld but didn't get priority
 	val ma_st = widthMap(w => (will_fire_sta_incoming(w) || will_fire_stad_incoming(w)) && exe_req(w).bits.mxcpt.valid) // We get ma_ld in memaddrcalc
   val pf_ld = widthMap(w => dtlb.io.req(w).valid && dtlb.io.resp(w).pf.ld && exe_tlb_uop(w).uses_ldq)
   val pf_st = widthMap(w => dtlb.io.req(w).valid && dtlb.io.resp(w).pf.st && exe_tlb_uop(w).uses_stq)
@@ -725,7 +725,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                      (pf_ld(w) || pf_st(w) || ae_ld(w) || ae_st(w) || ma_ld(w) || ma_st(w)) &&
                      !io.core.exception &&
                      !IsKilledByBranch(io.core.brupdate, exe_tlb_uop(w))))
-  val mem_xcpt_uops   = RegNext(widthMap(w => UpdateBrMask(io.core.brupdate, exe_tlb_uop(w))))
+  val mem_xcpt_uops   = RegNext(widthMap(w => Mux(will_fire_load_wakeup(w), UpdateBrMask(io.core.brupdate, ldq_wakeup_e.bits.uop), UpdateBrMask(io.core.brupdate, exe_tlb_uop(w))))) // modified by tojauch for additional Meltdoen Patch
   val mem_xcpt_causes = RegNext(widthMap(w =>
     Mux(ma_ld(w), rocket.Causes.misaligned_load.U,
     Mux(ma_st(w), rocket.Causes.misaligned_store.U,
@@ -1302,7 +1302,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //         Delay this a cycle to avoid going ahead of the exception broadcast
   //         The unsafe bit is cleared on the first translation, so no need to fire for load wakeups
   for (w <- 0 until memWidth) {
-    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w)) // && false.B // modified by tojauch to speed up PNR
+    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w) && !ldq(lcam_ldq_idx(w)).bits.failure) // && false.B // modified by tojauch to speed up PNR
     io.core.clr_unsafe(w).bits  := RegNext(lcam_uop(w).rob_idx)
   }
 
