@@ -709,8 +709,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   // exceptions
   // ---
-  // modified by mofadiheh for STT and Meltdown Fix
-  // val ma_ld = widthMap(w => will_fire_load_incoming(w) && exe_req(w).bits.mxcpt.valid) // We get ma_ld in memaddrcalc
+  // modified by tojauch for STT and Meltdown Fix
   val ma_ld = widthMap(w => ((will_fire_load_incoming(w) && exe_req(w).bits.mxcpt.valid) || // We get ma_ld in memaddrcalc
                               (will_fire_load_retry(w) && ldq(ldq_retry_idx).bits.failure) ||
                                 (will_fire_load_wakeup(w) && ldq(ldq_wakeup_idx).bits.failure))) // Came in with a ma_ld but didn't get priority
@@ -722,10 +721,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   // TODO check for xcpt_if and verify that never happens on non-speculative instructions.
   val mem_xcpt_valids = RegNext(widthMap(w =>
-                     (pf_ld(w) || pf_st(w) || ae_ld(w) || ae_st(w) || ma_ld(w) || ma_st(w)) &&
-                     !io.core.exception &&
-                     !IsKilledByBranch(io.core.brupdate, exe_tlb_uop(w))))
-  val mem_xcpt_uops   = RegNext(widthMap(w => Mux(will_fire_load_wakeup(w), UpdateBrMask(io.core.brupdate, ldq_wakeup_e.bits.uop), UpdateBrMask(io.core.brupdate, exe_tlb_uop(w))))) // modified by tojauch for additional Meltdoen Patch
+    (pf_ld(w) || pf_st(w) || ae_ld(w) || ae_st(w) || ma_ld(w) || ma_st(w)) &&
+      !io.core.exception &&
+      Mux(will_fire_load_wakeup(w), !IsKilledByBranch(io.core.brupdate, ldq(ldq_wakeup_idx).bits.uop), !IsKilledByBranch(io.core.brupdate, exe_tlb_uop(w))))) // added by tojauch for Meltdown Fix
+  val mem_xcpt_uops   = RegNext(widthMap(w => Mux(will_fire_load_wakeup(w), UpdateBrMask(io.core.brupdate, ldq(ldq_wakeup_idx).bits.uop), UpdateBrMask(io.core.brupdate, exe_tlb_uop(w))))) // added by tojauch for Meltdown Fix
+
   val mem_xcpt_causes = RegNext(widthMap(w =>
     Mux(ma_ld(w), rocket.Causes.misaligned_load.U,
     Mux(ma_st(w), rocket.Causes.misaligned_store.U,
@@ -895,7 +895,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     // set failure bit for PFs detected in TLB or MAs 
     when (will_fire_load_incoming(w) || will_fire_load_retry(w))
     {
-      ldq(ldq_idx).bits.failure := (ma_ld(w) || pf_ld(w))
+      ldq(ldq_idx).bits.failure := ((will_fire_load_incoming(w) && (ma_ld(w) || pf_ld(w))) || (will_fire_load_retry(w) && pf_ld(w)))
     }
 
     //##################################################################################################################
@@ -1143,7 +1143,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   // added by tojauch for Meltdown Fix
   for (w <- 0 until memWidth) {
-    when((fired_load_incoming(w) || fired_load_retry(w)) && mem_xcpt_valid) {
+    when((fired_load_incoming(w) || fired_load_retry(w) || fired_load_wakeup(w)) && mem_xcpt_valid) {
 
       s1_set_execute(lcam_ldq_idx(w)) := false.B
       io.dmem.s1_kill(w) := RegNext(dmem_req_fire(w))
@@ -1302,7 +1302,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //         Delay this a cycle to avoid going ahead of the exception broadcast
   //         The unsafe bit is cleared on the first translation, so no need to fire for load wakeups
   for (w <- 0 until memWidth) {
-    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w) && !ldq(lcam_ldq_idx(w)).bits.failure) // && false.B // modified by tojauch to speed up PNR
+    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w) && !mem_xcpt_valid) // modified by tojauch to speed up PNR
     io.core.clr_unsafe(w).bits  := RegNext(lcam_uop(w).rob_idx)
   }
 
