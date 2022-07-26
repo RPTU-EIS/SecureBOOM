@@ -92,8 +92,8 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
                          0, // No bypass for FP
                          0,
                          fLen+1,
-												 false.B,// param added by Mo, isInteger = False
-                         48.U)) // param added by Philipp, handles alert IDs 32 and 16
+												 false.B// param added by Mo, isInteger = False
+                         ))
 
   require (exe_units.count(_.readsFrf) == issue_unit.issueWidth)
   require (exe_units.numFrfWritePorts + numLlPorts == numWakeupPorts)

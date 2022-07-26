@@ -187,9 +187,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
     when ( (io.brupdate.sec_alert.aborted_uop_valid(0) && io.brupdate.sec_alert.aborted_uop_rob_idx(0) === slot_uop.rob_idx)
       || (io.brupdate.sec_alert.aborted_uop_valid(1) && io.brupdate.sec_alert.aborted_uop_rob_idx(1) === slot_uop.rob_idx)
       || (io.brupdate.sec_alert.aborted_uop_valid(2) && io.brupdate.sec_alert.aborted_uop_rob_idx(2) === slot_uop.rob_idx)
-      || (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
-      || (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx)
-      || (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx)){
+      || (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)){
       next_state := s_wait_untaint
 		}
 	} .elsewhen ( state === s_wait_untaint ) {
@@ -204,9 +202,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
   assert ( !( (io.brupdate.sec_alert.aborted_uop_valid(0) && io.brupdate.sec_alert.aborted_uop_rob_idx(0) === slot_uop.rob_idx)
     || (io.brupdate.sec_alert.aborted_uop_valid(1) && io.brupdate.sec_alert.aborted_uop_rob_idx(1) === slot_uop.rob_idx)
     || (io.brupdate.sec_alert.aborted_uop_valid(2) && io.brupdate.sec_alert.aborted_uop_rob_idx(2) === slot_uop.rob_idx)
-    || (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
-    || (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx)
-    || (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx) ) || state === s_wait || state === s_invalid,
+    || (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx) ) || state === s_wait || state === s_invalid,
     "trying to abort a valid uop!")
   when (io.in_uop.valid) {
     slot_uop := io.in_uop.bits
@@ -290,9 +286,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
     (io.brupdate.sec_alert.aborted_uop_valid(0) && io.brupdate.sec_alert.aborted_uop_rob_idx(0) === slot_uop.rob_idx) ||
     (io.brupdate.sec_alert.aborted_uop_valid(1) && io.brupdate.sec_alert.aborted_uop_rob_idx(1) === slot_uop.rob_idx) ||
     (io.brupdate.sec_alert.aborted_uop_valid(2) && io.brupdate.sec_alert.aborted_uop_rob_idx(2) === slot_uop.rob_idx) ||
-    (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx) ||
-    (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx) ||
-    (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx)
+    (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
 
   //if uop is aborted, the uop shoould update the yrot
 	val next_yrot = Wire(UInt(robAddrSz.W))
@@ -311,14 +305,6 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
   .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
   {
     next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(3)
-  }
-  .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx)
-  {
-    next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(4)
-  }
-  .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx)
-  {
-    next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(5)
   }
   .otherwise
   {
