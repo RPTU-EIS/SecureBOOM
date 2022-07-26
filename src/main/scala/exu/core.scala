@@ -1698,20 +1698,87 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   }
 
   //added by Philipp Schmitz to pass signals to the monitor
-  io.sec_monitor_signals.jmp_signals.jmp_req_valid := jmp_unit.io.req.valid
-  io.sec_monitor_signals.jmp_signals.jmp_req_taint := jmp_unit.io.req.bits.uop.taint
-  io.sec_monitor_signals.jmp_signals.jmp_req_is_br := jmp_unit.io.req.bits.uop.is_br
-  io.sec_monitor_signals.jmp_signals.jmp_req_is_jal := jmp_unit.io.req.bits.uop.is_jal
-  io.sec_monitor_signals.jmp_signals.jmp_req_is_jalr := jmp_unit.io.req.bits.uop.is_jalr
-  io.sec_monitor_signals.jmp_signals.jmp_req_yrot := jmp_unit.io.req.bits.uop.yrot
-  io.sec_monitor_signals.jmp_signals.jmp_rob_idx := jmp_unit.io.req.bits.uop.rob_idx
+  io.sec_monitor_signals.jmp_signals.req_valid := jmp_unit.io.req.valid
+  io.sec_monitor_signals.jmp_signals.req_taint := jmp_unit.io.req.bits.uop.taint
+  io.sec_monitor_signals.jmp_signals.req_is_br := jmp_unit.io.req.bits.uop.is_br
+  io.sec_monitor_signals.jmp_signals.req_is_jal := jmp_unit.io.req.bits.uop.is_jal
+  io.sec_monitor_signals.jmp_signals.req_is_jalr := jmp_unit.io.req.bits.uop.is_jalr
+  io.sec_monitor_signals.jmp_signals.req_yrot := jmp_unit.io.req.bits.uop.yrot
+  io.sec_monitor_signals.jmp_signals.rob_idx := jmp_unit.io.req.bits.uop.rob_idx
 
-  io.sec_monitor_signals.csr_signals.csr_req_valid := csr_exe_unit.io.req.valid
-  io.sec_monitor_signals.csr_signals.csr_req_taint := csr_exe_unit.io.req.bits.uop.taint
-  io.sec_monitor_signals.csr_signals.csr_req_is_br := csr_exe_unit.io.req.bits.uop.is_br
-  io.sec_monitor_signals.csr_signals.csr_req_is_jal := csr_exe_unit.io.req.bits.uop.is_jal
-  io.sec_monitor_signals.csr_signals.csr_req_is_jalr := csr_exe_unit.io.req.bits.uop.is_jalr
-  io.sec_monitor_signals.csr_signals.csr_req_yrot := csr_exe_unit.io.req.bits.uop.yrot
-  io.sec_monitor_signals.csr_signals.csr_rob_idx := csr_exe_unit.io.req.bits.uop.rob_idx
+  io.sec_monitor_signals.csr_signals.req_valid := csr_exe_unit.io.req.valid
+  io.sec_monitor_signals.csr_signals.req_taint := csr_exe_unit.io.req.bits.uop.taint
+  io.sec_monitor_signals.csr_signals.req_is_br := csr_exe_unit.io.req.bits.uop.is_br
+  io.sec_monitor_signals.csr_signals.req_is_jal := csr_exe_unit.io.req.bits.uop.is_jal
+  io.sec_monitor_signals.csr_signals.req_is_jalr := csr_exe_unit.io.req.bits.uop.is_jalr
+  io.sec_monitor_signals.csr_signals.req_yrot := csr_exe_unit.io.req.bits.uop.yrot
+  io.sec_monitor_signals.csr_signals.rob_idx := csr_exe_unit.io.req.bits.uop.rob_idx
+
+  if(usingFPU) {
+    //can't touch fdivsqrt unit so each uop going to fp_pipeline is checked for fdivsqrt instructions
+    for (uop_it <- fp_pipeline.io.dis_uops) {
+      when (uop_it.bits.uopc === uopFDIV_S ||
+        uop_it.bits.uopc === uopFDIV_D ||
+        uop_it.bits.uopc === uopFSQRT_S ||
+        uop_it.bits.uopc === uopFSQRT_D) {
+        //Problem if we have multiple uops dispatched to fdivsqrt at the same time? Is this even possible?
+        io.sec_monitor_signals.fdiv_signals.req_valid := uop_it.valid
+        io.sec_monitor_signals.fdiv_signals.req_taint := uop_it.bits.taint
+        io.sec_monitor_signals.fdiv_signals.req_yrot := uop_it.bits.yrot
+        io.sec_monitor_signals.fdiv_signals.rob_idx := uop_it.bits.rob_idx
+      } .otherwise {
+        io.sec_monitor_signals.fdiv_signals.req_valid := false.B
+        io.sec_monitor_signals.fdiv_signals.req_taint := false.B
+        io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
+        io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
+      }
+
+      when(uop_it.bits.uopc === uopFCVT_S_D ||
+        uop_it.bits.uopc === uopFCVT_D_S ||
+        uop_it.bits.uopc === uopFCVT_S_X ||
+        uop_it.bits.uopc === uopFCVT_D_X ||
+        uop_it.bits.uopc === uopFCVT_X_S ||
+        uop_it.bits.uopc === uopFCVT_X_D) {
+        io.sec_monitor_signals.fp_to_int_signals.req_valid := uop_it.valid
+        io.sec_monitor_signals.fp_to_int_signals.req_taint := uop_it.bits.taint
+        io.sec_monitor_signals.fp_to_int_signals.req_yrot := uop_it.bits.yrot
+        io.sec_monitor_signals.fp_to_int_signals.rob_idx := uop_it.bits.rob_idx
+      }.otherwise {
+        io.sec_monitor_signals.fp_to_int_signals.req_valid := false.B
+        io.sec_monitor_signals.fp_to_int_signals.req_taint := false.B
+        io.sec_monitor_signals.fp_to_int_signals.req_yrot := 0.U
+        io.sec_monitor_signals.fp_to_int_signals.rob_idx := 0.U
+      }
+
+      when(uop_it.bits.uopc === uopSTA) {
+        io.sec_monitor_signals.fp_store_signals.req_valid := uop_it.valid
+        io.sec_monitor_signals.fp_store_signals.req_taint := uop_it.bits.taint
+        io.sec_monitor_signals.fp_store_signals.req_yrot := uop_it.bits.yrot
+        io.sec_monitor_signals.fp_store_signals.rob_idx := uop_it.bits.rob_idx
+      }.otherwise {
+        io.sec_monitor_signals.fp_store_signals.req_valid := false.B
+        io.sec_monitor_signals.fp_store_signals.req_taint := false.B
+        io.sec_monitor_signals.fp_store_signals.req_yrot := 0.U
+        io.sec_monitor_signals.fp_store_signals.rob_idx := 0.U
+      }
+    }
+  } else {
+    io.sec_monitor_signals.fdiv_signals.req_valid := false.B
+    io.sec_monitor_signals.fdiv_signals.req_taint := false.B
+    io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
+    io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
+    io.sec_monitor_signals.fp_to_int_signals.req_valid := false.B
+    io.sec_monitor_signals.fp_to_int_signals.req_taint := false.B
+    io.sec_monitor_signals.fp_to_int_signals.req_yrot := 0.U
+    io.sec_monitor_signals.fp_to_int_signals.rob_idx := 0.U
+    io.sec_monitor_signals.fp_store_signals.req_valid := false.B
+    io.sec_monitor_signals.fp_store_signals.req_taint := false.B
+    io.sec_monitor_signals.fp_store_signals.req_yrot := 0.U
+    io.sec_monitor_signals.fp_store_signals.rob_idx := 0.U
+  }
+  io.sec_monitor_signals.div_signals.req_valid := exe_units.div_valid
+  io.sec_monitor_signals.div_signals.req_taint := exe_units.div_uop_taint
+  io.sec_monitor_signals.div_signals.req_yrot := exe_units.div_uop_yrot
+  io.sec_monitor_signals.div_signals.rob_idx := exe_units.div_uop_robid
 
 }
