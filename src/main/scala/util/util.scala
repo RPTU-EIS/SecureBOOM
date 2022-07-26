@@ -65,7 +65,7 @@ object IsKilledByBranch
 // added by mofadiheh for taint
 	def apply(brupdate: BrUpdateInfo, uop: MicroOp, alert_identifier: UInt): Bool = {
 	return maskMatch(brupdate.b1.mispredict_mask, uop.br_mask) ||
-	  ( brupdate.sec_alert.alert_valid && ( ( brupdate.sec_alert.alert_mask & alert_identifier ) === alert_identifier ) && alert_identifier =/= 0.U )
+    ( brupdate.sec_alert.alert_valid && ( ( brupdate.sec_alert.alert_mask & alert_identifier ) =/= 0.U ))
 	}
 
 

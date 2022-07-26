@@ -35,7 +35,14 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
   // Instantiate the ExecutionUnits
 
   private val exe_units = ArrayBuffer[ExecutionUnit]()
-
+  val div_valid = Wire(Bool())
+  val div_uop_taint = Wire(Bool())
+  val div_uop_yrot = Wire(UInt())
+  val div_uop_robid = Wire(UInt())
+  div_valid := false.B
+  div_uop_taint := false.B
+  div_uop_yrot := 0.U
+  div_uop_robid := 0.U
   //*******************************
   // Act like a collection
 
@@ -128,6 +135,12 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
         hasIfpu          = is_nth(4) && usingFPU,
 		alert_identifier = (1<<w).asUInt)) //added by mofadiheh for taint
       exe_units += alu_exe_unit
+      if(is_nth(3)) {
+        div_valid := alu_exe_unit.io.req.valid && alu_exe_unit.io.req.bits.uop.fu_code_is(16.U(10.W)) && alu_exe_unit.hasDiv.B
+        div_uop_taint := alu_exe_unit.io.req.bits.uop.taint
+        div_uop_yrot := alu_exe_unit.io.req.bits.uop.yrot
+        div_uop_robid := alu_exe_unit.io.req.bits.uop.rob_idx
+      }
     }
   } else {
     val fp_width = issueParams.find(_.iqType == IQT_FP.litValue).get.issueWidth

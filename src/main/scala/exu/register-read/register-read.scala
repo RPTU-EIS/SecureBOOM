@@ -44,8 +44,9 @@ class RegisterRead(
   numTotalBypassPorts: Int,
   numTotalPredBypassPorts: Int,
   registerWidth: Int,
-	isInteger: Bool // added by mofadiheh, this param is added to distinguish between FP register read and int register read.
-									// num of read ports can also be used because FP has 3 read ports in MediumBoomConfig but the param is added to be safe for other configs
+  isInteger: Bool, // added by Mo, this param is added to distinguish between FP register read and int register read.
+  alert_id: UInt = 0.U // added by Philipp, this param is added to distinguish between alerts
+  // num of read ports can also be used because FP has 3 read ports in MediumBoomConfig but the param is added to be safe for other configs
 )(implicit p: Parameters) extends BoomModule
 {
   val io = IO(new Bundle {
@@ -92,7 +93,7 @@ class RegisterRead(
     rrd_decode_unit.io.iss_uop   := io.iss_uops(w)
 
     rrd_valids(w) := RegNext(rrd_decode_unit.io.rrd_valid &&
-                !IsKilledByBranch(io.brupdate, rrd_decode_unit.io.rrd_uop))
+                !IsKilledByBranch(io.brupdate, rrd_decode_unit.io.rrd_uop, alert_id))
     rrd_uops(w)   := RegNext(GetNewUopAndBrMask(rrd_decode_unit.io.rrd_uop, io.brupdate))
   }
 
@@ -165,7 +166,7 @@ class RegisterRead(
 
     if (enableSFBOpt) rrd_pred_data(w) := Mux(RegNext(io.iss_uops(w).is_sfb_shadow), io.prf_read_ports(w).data, false.B)
 
-    val rrd_kill = io.kill || IsKilledByBranch(io.brupdate, rrd_uops(w))
+    val rrd_kill = io.kill || IsKilledByBranch(io.brupdate, rrd_uops(w), alert_id)
 
     exe_reg_valids(w) := Mux(rrd_kill, false.B, rrd_valids(w))
     // TODO use only the valids signal, don't require us to set nullUop
