@@ -668,7 +668,7 @@ class IntToFPUnit(latency: Int)(implicit p: Parameters)
  *
  * @param dataWidth width of the data to be passed into the functional unit
  */
-abstract class IterativeFunctionalUnit(dataWidth: Int)(implicit p: Parameters)
+abstract class IterativeFunctionalUnit(dataWidth: Int, alertIdentifier: UInt)(implicit p: Parameters)
   extends FunctionalUnit(
     isPipelined = false,
     numStages = 1,
@@ -682,7 +682,7 @@ abstract class IterativeFunctionalUnit(dataWidth: Int)(implicit p: Parameters)
 
   when (io.req.fire) {
     // update incoming uop
-    do_kill := IsKilledByBranch(io.brupdate, io.req.bits.uop) || io.req.bits.kill
+    do_kill := IsKilledByBranch(io.brupdate, io.req.bits.uop, alertIdentifier) || io.req.bits.kill
     r_uop := io.req.bits.uop
     r_uop.br_mask := GetNewBrMask(io.brupdate, io.req.bits.uop)
 
@@ -692,7 +692,7 @@ abstract class IterativeFunctionalUnit(dataWidth: Int)(implicit p: Parameters)
 	r_uop.taint   := GetNewImplicitTaint(io.brupdate, io.req.bits.uop)
 
   } .otherwise {
-    do_kill := IsKilledByBranch(io.brupdate, r_uop) || io.req.bits.kill
+    do_kill := IsKilledByBranch(io.brupdate, r_uop, alertIdentifier) || io.req.bits.kill
 
 	// Implicit Taint must be updated
 	// added by mofadiheh for taint
@@ -711,7 +711,7 @@ abstract class IterativeFunctionalUnit(dataWidth: Int)(implicit p: Parameters)
  * @param dataWidth data to be passed into the functional unit
  */
 class DivUnit(dataWidth: Int)(implicit p: Parameters)
-  extends IterativeFunctionalUnit(dataWidth)
+  extends IterativeFunctionalUnit(dataWidth, 8.U)
 {
 
   // We don't use the iterative multiply functionality here.

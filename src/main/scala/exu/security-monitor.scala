@@ -1,8 +1,7 @@
 // Security Monitor for UPEC driven secure design flow
-// Implemented by Mo 
-// This component is in charge of raising alarm if unsafe P-Alerts are detected 
+// Implemented by Philipp
+// This component is in charge of raising alarm if unsafe P-Alerts are detected
 // through runtime
-// implemented by Philipp Schmitz, Mohammad Rahmani Fadiheh and Tobias Jauch 29/06/2022
 
 package boom.exu
 
@@ -30,38 +29,35 @@ class SecurityAlert (implicit p: Parameters) extends BoomBundle
 {
 	val alert_valid = Bool()
 	val alert_mask = UInt()
-	val aborted_uop_valid = Vec(2, Bool())
-	val aborted_uop_rob_idx = Vec(2, UInt(robAddrSz.W)) 
-	val aborted_uop_yrot = Vec(2, UInt(robAddrSz.W)) 
+	val aborted_uop_valid = Vec(6, Bool())
+	val aborted_uop_rob_idx = Vec(6, UInt(robAddrSz.W))
+	val aborted_uop_yrot = Vec(6, UInt(robAddrSz.W))
 }
 
-class SecurityMonitorJmpUnitSignals (implicit p: Parameters) extends BoomBundle
+class SecurityMonitorControlSignals (implicit p: Parameters) extends BoomBundle
 {
-	val jmp_req_valid = Bool()
-	val jmp_req_taint = Bool()
-	val jmp_req_is_br = Bool()
-	val jmp_req_is_jal = Bool()
-	val jmp_req_is_jalr = Bool()
-	val jmp_rob_idx = UInt(robAddrSz.W)
-	val jmp_req_yrot = UInt(robAddrSz.W)
+	val req_valid = Bool()
+	val req_taint = Bool()
+	val rob_idx = UInt(robAddrSz.W)
+	val  req_yrot = UInt(robAddrSz.W)
 
 }
 
-class SecurityMonitorCSRSignals (implicit p: Parameters) extends BoomBundle
+class SecurityMonitorControlSignalsExtended (implicit p: Parameters) extends SecurityMonitorControlSignals
 {
-	val csr_req_valid = Bool()
-	val csr_req_taint = Bool()
-	val csr_req_is_br = Bool()
-	val csr_req_is_jal = Bool()
-	val csr_req_is_jalr = Bool()
-	val csr_rob_idx = UInt(robAddrSz.W)
-	val csr_req_yrot = UInt(robAddrSz.W)
+	val req_is_br = Bool()
+	val req_is_jal = Bool()
+	val req_is_jalr = Bool()
 }
 
 class SecurityMonitorSignals (implicit p: Parameters) extends BoomBundle
 {
-	val jmp_signals = new SecurityMonitorJmpUnitSignals()
-	val csr_signals = new SecurityMonitorCSRSignals()
+	val jmp_signals = new SecurityMonitorControlSignalsExtended()
+	val csr_signals = new SecurityMonitorControlSignalsExtended()
+	val fdiv_signals = new SecurityMonitorControlSignals()
+	val div_signals = new SecurityMonitorControlSignals()
+	val fp_to_int_signals = new SecurityMonitorControlSignals()
+	val fp_store_signals = new SecurityMonitorControlSignals()
 }
 
 
@@ -69,68 +65,99 @@ class SecurityMonitorSignals (implicit p: Parameters) extends BoomBundle
 class SecurityMonitor(implicit p: Parameters) extends BoomModule
 {
 	val io = IO(new Bundle {
-									val sec_alert = Output(new SecurityAlert())
-									//val temp = Input(UInt())
-									val sec_mon_inputs = Input(new SecurityMonitorSignals())
+		val sec_alert = Output(new SecurityAlert())
+		//val temp = Input(UInt())
+		val sec_mon_inputs = Input(new SecurityMonitorSignals())
 
-							})
+	})
 
+	//add new types of alerts here
+	val jmp_alert = Wire(Bool())
+	val csr_alert = Wire(Bool())
+	val fdiv_alert = Wire(Bool())
+	val div_alert = Wire(Bool())
+	val fp_to_int_alert = Wire(Bool())
+	val fp_store_alert = Wire(Bool())
 
-	var alert1 = Wire(Vec(2, Bool()))
-	var alert2 = Wire(Vec(2, Bool()))
+	jmp_alert := io.sec_mon_inputs.jmp_signals.req_valid && io.sec_mon_inputs.jmp_signals.req_taint && (io.sec_mon_inputs.jmp_signals.req_is_br || io.sec_mon_inputs.jmp_signals.req_is_jal || io.sec_mon_inputs.jmp_signals.req_is_jalr)
+	csr_alert := io.sec_mon_inputs.csr_signals.req_valid && io.sec_mon_inputs.csr_signals.req_taint && (io.sec_mon_inputs.csr_signals.req_is_br || io.sec_mon_inputs.csr_signals.req_is_jal || io.sec_mon_inputs.csr_signals.req_is_jalr)
+	//every tainted (f)div uop is transient
+	fdiv_alert := io.sec_mon_inputs.fdiv_signals.req_valid && io.sec_mon_inputs.fdiv_signals.req_taint
+	div_alert := io.sec_mon_inputs.div_signals.req_valid && io.sec_mon_inputs.div_signals.req_taint
+	fp_to_int_alert := io.sec_mon_inputs.fp_to_int_signals.req_valid && io.sec_mon_inputs.fp_to_int_signals.req_taint
+	fp_store_alert := io.sec_mon_inputs.fp_store_signals.req_valid && io.sec_mon_inputs.fp_store_signals.req_taint
+	//continue adding like this for alert encoding
+	io.sec_alert.alert_mask := jmp_alert * 1.U + csr_alert * 2.U + fdiv_alert * 4.U + div_alert * 8.U + fp_to_int_alert * 16.U + fp_store_alert * 32.U
 
-  alert1(0) := io.sec_mon_inputs.jmp_signals.jmp_req_valid && io.sec_mon_inputs.jmp_signals.jmp_req_taint && (io.sec_mon_inputs.jmp_signals.jmp_req_is_br || io.sec_mon_inputs.jmp_signals.jmp_req_is_jal || io.sec_mon_inputs.jmp_signals.jmp_req_is_jalr)
-	alert1(1) := false.B
-	alert2(1) := io.sec_mon_inputs.csr_signals.csr_req_valid && io.sec_mon_inputs.csr_signals.csr_req_taint && (io.sec_mon_inputs.csr_signals.csr_req_is_br || io.sec_mon_inputs.csr_signals.csr_req_is_jal || io.sec_mon_inputs.csr_signals.csr_req_is_jalr)
-	alert2(0) := false.B
+	io.sec_alert.alert_valid := jmp_alert || csr_alert || fdiv_alert || div_alert || fp_to_int_alert || fp_store_alert
 
-	when(alert1(0) === false.B && alert2(1) === false.B)
-	{
-		io.sec_alert.alert_mask := 0.U
-		io.sec_alert.alert_valid := false.B
+	io.sec_alert.aborted_uop_valid(0) := jmp_alert
+	io.sec_alert.aborted_uop_valid(1) := csr_alert
+	io.sec_alert.aborted_uop_valid(2) := fdiv_alert
+	io.sec_alert.aborted_uop_valid(3) := div_alert
+	io.sec_alert.aborted_uop_valid(4) := fp_to_int_alert
+	io.sec_alert.aborted_uop_valid(5) := fp_store_alert
+
+	when(jmp_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(0) := true.B
+		io.sec_alert.aborted_uop_rob_idx(0) := io.sec_mon_inputs.jmp_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(0) := io.sec_mon_inputs.jmp_signals.req_yrot
+	} .elsewhen(jmp_alert === false.B) {
 		io.sec_alert.aborted_uop_valid(0) := false.B
 		io.sec_alert.aborted_uop_rob_idx(0) := 0.U
 		io.sec_alert.aborted_uop_yrot(0) := 0.U
-
-		io.sec_alert.aborted_uop_valid(1) := false.B
-		io.sec_alert.aborted_uop_rob_idx(1) := 0.U
-		io.sec_alert.aborted_uop_yrot(1) := 0.U
-	} .elsewhen(alert1(0) === true.B && alert2(1) === false.B ) {
-		io.sec_alert.alert_mask := 1.U
-		io.sec_alert.alert_valid := true.B
-		io.sec_alert.aborted_uop_valid(0) := true.B
-		io.sec_alert.aborted_uop_rob_idx(0) := io.sec_mon_inputs.jmp_signals.jmp_rob_idx
-		io.sec_alert.aborted_uop_yrot(0) := io.sec_mon_inputs.jmp_signals.jmp_req_yrot
-
-		io.sec_alert.aborted_uop_valid(1) := false.B
-		io.sec_alert.aborted_uop_rob_idx(1) := 0.U
-		io.sec_alert.aborted_uop_yrot(1) := 0.U
-	} .elsewhen(alert1(0) === false.B && alert2(1) === true.B ) {
-		io.sec_alert.alert_mask := 2.U
-		io.sec_alert.alert_valid := true.B
-
-		io.sec_alert.aborted_uop_valid(0) := false.B
-		io.sec_alert.aborted_uop_rob_idx(0) := 0.U
-		io.sec_alert.aborted_uop_yrot(0) := 0.U
-
-		io.sec_alert.aborted_uop_valid(1) := true.B
-		io.sec_alert.aborted_uop_rob_idx(1) := io.sec_mon_inputs.csr_signals.csr_rob_idx
-		io.sec_alert.aborted_uop_yrot(1) := io.sec_mon_inputs.csr_signals.csr_req_yrot
-	} .elsewhen(alert1(0) === true.B && alert2(1) === true.B ) {
-		io.sec_alert.alert_mask := 3.U
-		io.sec_alert.alert_valid := true.B
-
-
-		io.sec_alert.aborted_uop_valid(0) := true.B
-		io.sec_alert.aborted_uop_rob_idx(0) := io.sec_mon_inputs.jmp_signals.jmp_rob_idx
-		io.sec_alert.aborted_uop_yrot(0) := io.sec_mon_inputs.jmp_signals.jmp_req_yrot
-
-		io.sec_alert.aborted_uop_valid(1) := true.B
-		io.sec_alert.aborted_uop_rob_idx(1) := io.sec_mon_inputs.csr_signals.csr_rob_idx
-		io.sec_alert.aborted_uop_yrot(1) := io.sec_mon_inputs.csr_signals.csr_req_yrot
 	}
 
+	when(csr_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(1) := true.B
+		io.sec_alert.aborted_uop_rob_idx(1) := io.sec_mon_inputs.csr_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(1) := io.sec_mon_inputs.csr_signals.req_yrot
+	} .elsewhen(csr_alert === false.B) {
+		io.sec_alert.aborted_uop_valid(1) := false.B
+		io.sec_alert.aborted_uop_rob_idx(1) := 0.U
+		io.sec_alert.aborted_uop_yrot(1) := 0.U
+	}
+
+	when(fdiv_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(2) := true.B
+		io.sec_alert.aborted_uop_rob_idx(2) := io.sec_mon_inputs.fdiv_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(2) := io.sec_mon_inputs.fdiv_signals.req_yrot
+	} .elsewhen(fdiv_alert === false.B) {
+		io.sec_alert.aborted_uop_valid(2) := false.B
+		io.sec_alert.aborted_uop_rob_idx(2) := 0.U
+		io.sec_alert.aborted_uop_yrot(2) := 0.U
+	}
+
+	when(div_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(3) := true.B
+		io.sec_alert.aborted_uop_rob_idx(3) := io.sec_mon_inputs.div_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(3) := io.sec_mon_inputs.div_signals.req_yrot
+	} .elsewhen(fdiv_alert === false.B) {
+		io.sec_alert.aborted_uop_valid(3) := false.B
+		io.sec_alert.aborted_uop_rob_idx(3) := 0.U
+		io.sec_alert.aborted_uop_yrot(3) := 0.U
+	}
+
+	when(fp_to_int_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(4) := true.B
+		io.sec_alert.aborted_uop_rob_idx(4) := io.sec_mon_inputs.fp_to_int_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(4) := io.sec_mon_inputs.fp_to_int_signals.req_yrot
+	} .elsewhen(fp_to_int_alert === false.B) {
+		io.sec_alert.aborted_uop_valid(4) := false.B
+		io.sec_alert.aborted_uop_rob_idx(4) := 0.U
+		io.sec_alert.aborted_uop_yrot(4) := 0.U
+	}
+
+	when(fp_store_alert === true.B) {
+		io.sec_alert.aborted_uop_valid(5) := true.B
+		io.sec_alert.aborted_uop_rob_idx(5) := io.sec_mon_inputs.fp_store_signals.rob_idx
+		io.sec_alert.aborted_uop_yrot(5) := io.sec_mon_inputs.fp_store_signals.req_yrot
+	} .elsewhen(fdiv_alert === false.B) {
+		io.sec_alert.aborted_uop_valid(5) := false.B
+		io.sec_alert.aborted_uop_rob_idx(5) := 0.U
+		io.sec_alert.aborted_uop_yrot(5) := 0.U
+	}
 
 	dontTouch(io.sec_alert.alert_mask)
-	dontTouch(io.sec_alert.aborted_uop_yrot)	
+	dontTouch(io.sec_alert.aborted_uop_yrot)
 }
