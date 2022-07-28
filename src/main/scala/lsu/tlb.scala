@@ -14,10 +14,15 @@ import boom.common._
 import boom.exu.{BrResolutionInfo, Exception, FuncUnitResp, CommitSignals}
 import boom.util.{BoolToChar, AgePriorityEncoder, IsKilledByBranch, GetNewBrMask, WrapInc, IsOlder, UpdateBrMask}
 
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 25/07/2022 (STT + TaintedDelay)
+
 class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: TLEdgeOut, p: Parameters) extends BoomModule()(p) {
   require(!instruction)
   val io = IO(new Bundle {
     val req = Flipped(Vec(memWidth, Decoupled(new TLBReq(lgMaxSize))))
+    // Delay misses for TaintedDelay Cache Design
+    // Added by tojauch and mofadiheh for STT + TaintedDelay
+    val is_USL = Input(Vec(memWidth,Bool()))
     val miss_rdy = Output(Bool())
     val resp = Output(Vec(memWidth, new TLBResp))
     val sfence = Input(Valid(new SFenceReq))
@@ -269,14 +274,16 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   val tlb_hit = widthMap(w => real_hits(w).orR)
   val tlb_miss = widthMap(w => vm_enabled(w) && !bad_va(w) && !tlb_hit(w))
 
-  val sectored_plru = new PseudoLRU(sectored_entries.size)
-  val superpage_plru = new PseudoLRU(superpage_entries.size)
-  for (w <- 0 until memWidth) {
+  // Random Replacement Policy to avoid information leakage through speculative hits
+  // added by tojauch for STT + TaintedDelay
+  val sectored_rand = new RandomReplacement(sectored_entries.size)
+  val superpage_rand = new RandomReplacement(superpage_entries.size)
+  /*for (w <- 0 until memWidth) {
     when (io.req(w).valid && vm_enabled(w)) {
-      when (sector_hits(w).orR) { sectored_plru.access(OHToUInt(sector_hits(w))) }
-      when (superpage_hits(w).orR) { superpage_plru.access(OHToUInt(superpage_hits(w))) }
+      when (sector_hits(w).orR) { sectored_rand.access(OHToUInt(sector_hits(w))) }
+      when (superpage_hits(w).orR) { superpage_rand.access(OHToUInt(superpage_hits(w))) }
     }
-  }
+  }*/
 
   // Superpages create the possibility that two entries in the TLB may match.
   // This corresponds to a software bug, but we can't return complete garbage;
@@ -311,12 +318,13 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   if (usingVM) {
     val sfence = io.sfence.valid
     for (w <- 0 until memWidth) {
-      when (io.req(w).fire && tlb_miss(w) && state === s_ready) {
+      // Added by tojauch and mofadiheh for STT + TaintedDelay
+      when (io.req(w).fire && tlb_miss(w) && state === s_ready && !io.is_USL(w)) {
         state := s_request
         r_refill_tag := vpn(w)
 
-        r_superpage_repl_addr := replacementEntry(superpage_entries, superpage_plru.way)
-        r_sectored_repl_addr  := replacementEntry(sectored_entries, sectored_plru.way)
+        r_superpage_repl_addr := replacementEntry(superpage_entries, superpage_rand.way)
+        r_sectored_repl_addr  := replacementEntry(sectored_entries, sectored_rand.way)
         r_sectored_hit_addr   := OHToUInt(sector_hits(w))
         r_sectored_hit        := sector_hits(w).orR
       }
@@ -343,8 +351,14 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
         }
       }
     }
-    when (multipleHits.orR || reset.asBool) {
+    // Added by tojauch and mofadiheh for STT + TaintedDelay
+    when (reset.asBool) {
       all_entries.foreach(_.invalidate())
+    }
+    for (w <- 0 until memWidth) {
+      when (multipleHits.orR && !io.is_USL(w)) {
+        all_entries.foreach(_.invalidate())
+      }
     }
   }
 
