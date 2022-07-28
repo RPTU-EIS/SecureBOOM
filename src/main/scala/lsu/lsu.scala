@@ -463,9 +463,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   // never be older than pnr. We only need to check this for incomming and
   // retry
  
-  // Can we fire a incoming load (don't fire unsafe loads)
+  // Can we fire a incoming load (don't fire tainted loads)
   val can_fire_load_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load
-																						 && exe_req(w).bits.uop.rob_idx === io.core.rob_pnr_idx ) // added by mofadiheh for STT 
+																						 && !exe_req(w).bits.uop.taint) // added by tojauch for STT
 
   // Can we fire an incoming store addrgen + store datagen
   val can_fire_stad_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta
@@ -492,7 +492,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                ( ldq_retry_e.valid                                    &&
                                  ldq_retry_e.bits.addr.valid                          &&
                                  ldq_retry_e.bits.addr_is_virtual                     &&
-																 ldq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx &&  // added by mofadiheh for STT
+																 !ldq_retry_e.bits.uop.taint                          &&  // added by tojauch for STT
                                 !p1_block_load_mask(ldq_retry_idx)                    &&
                                 !p2_block_load_mask(ldq_retry_idx)                    &&
                                 RegNext(dtlb.io.miss_rdy)                             &&
@@ -533,8 +533,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !ldq_wakeup_e.bits.addr_is_virtual                       &&
                               !ldq_wakeup_e.bits.executed                              &&
                               !ldq_wakeup_e.bits.order_fail                            &&
-															(ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_pnr_idx   || // added by mofadiheh for STT
-  														 IsOlder(ldq_wakeup_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx)) && // added by mofadiheh for STT
+															!ldq_wakeup_e.bits.uop.taint                             && // added by tojauch for STT
                               !p1_block_load_mask(ldq_wakeup_idx)                      &&
                               !p2_block_load_mask(ldq_wakeup_idx)                      &&
                               !store_needs_order                                       &&
@@ -618,7 +617,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   //--------------------------------------------
   // if incoming doesn't get priority, write data from memaddrcalc to LDQ
-  // added by tojauch for ISTT
+  // added by tojauch for STT
 
   for (w <- 0 until memWidth) {
 
@@ -703,6 +702,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     dtlb.io.req(w).bits.passthrough := exe_passthr(w)
     dtlb.io.req(w).bits.v           := io.ptw.status.v
     dtlb.io.req(w).bits.prv         := io.ptw.status.prv
+
+    // Added by tojauch for STT + TainedDelay
+    dtlb.io.is_USL(w) := false.B
+    when (will_fire_load_incoming (w) || will_fire_stad_incoming (w) || will_fire_sta_incoming  (w)
+      || will_fire_load_retry (w) || will_fire_sta_retry (w)) {
+      dtlb.io.is_USL(w) := !(IsOlder(exe_tlb_uop(w).rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) || (exe_tlb_uop(w).rob_idx === io.core.rob_pnr_idx) || (exe_tlb_uop(w).rob_idx === io.core.rob_head_idx))
+    }
+
   }
   dtlb.io.kill                      := exe_kill.reduce(_||_)
   dtlb.io.sfence                    := exe_sfence
@@ -773,7 +780,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (mem_xcpt_valids(w))
     {
       assert(RegNext(will_fire_load_incoming(w) || will_fire_stad_incoming(w) || will_fire_sta_incoming(w) ||
-        will_fire_load_retry(w) || will_fire_sta_retry(w)))
+        will_fire_load_retry(w) || will_fire_sta_retry(w) || will_fire_load_wakeup(w)))
       // Technically only faulting AMOs need this
       assert(mem_xcpt_uops(w).uses_ldq ^ mem_xcpt_uops(w).uses_stq)
       when (mem_xcpt_uops(w).uses_ldq)
