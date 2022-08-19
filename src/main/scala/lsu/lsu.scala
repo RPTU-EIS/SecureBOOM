@@ -619,27 +619,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   require(memWidth <= 2)
 
   //--------------------------------------------
-  // if incoming doesn't get priority, write data from memaddrcalc to LDQ
-  // added by tojauch for STT
-
-  for (w <- 0 until memWidth) {
-
-    when(!will_fire_load_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load) {
-
-      val ldq_idx = ldq_incoming_idx(w)
-      ldq(ldq_idx).bits.addr.valid := true.B
-      ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
-      ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
-      ldq(ldq_idx).bits.addr_is_virtual := true.B
-      ldq(ldq_idx).bits.addr_is_uncacheable := false.B
-      ldq(ldq_idx).bits.failure := exe_req(w).bits.mxcpt.valid // set failure bit if memaddcalc sends a MA exception
-
-      assert(!ldq_incoming_e(w).bits.addr.valid,
-        "[lsu] Incoming load is overwriting a valid address")
-    }
-  }
-
-  //--------------------------------------------
   // TLB Access
 
   assert(!(hella_state =/= h_ready && hella_req.cmd === rocket.M_SFENCE),
@@ -909,6 +888,22 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
 
     //##################################################################################################################
+
+    //--------------------------------------------
+    // if incoming doesn't get priority, write data from memaddrcalc to LDQ
+    // added by tojauch for STT
+
+    when(!will_fire_load_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load) {
+
+      val ldq_idx = ldq_incoming_idx(w)
+      ldq(ldq_idx).bits.addr.valid := true.B
+      ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
+      ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
+      ldq(ldq_idx).bits.addr_is_virtual := true.B
+
+      assert(!ldq_incoming_e(w).bits.addr.valid,
+        "[lsu] Incoming load is overwriting a valid address")
+    }
 
 
     //-------------------------------------------------------------
