@@ -198,6 +198,7 @@ class STQEntry(implicit p: Parameters) extends BoomBundle()(p)
 
   val committed           = Bool() // committed by ROB
   val succeeded           = Bool() // D$ has ack'd this, we don't need to maintain this anymore
+	val unsafe_miss					= Bool() // added by mofadiheh - STT bug fix
 
   val debug_wb_data       = UInt(xLen.W)
 }
@@ -331,6 +332,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       stq(st_enq_idx).bits.data.valid := false.B
       stq(st_enq_idx).bits.committed  := false.B
       stq(st_enq_idx).bits.succeeded  := false.B
+      stq(st_enq_idx).bits.unsafe_miss:= false.B // added by mofadiheh STT bug fix
 
       assert (st_enq_idx === io.core.dis_uops(w).bits.stq_idx, "[lsu] mismatch enq store tag.")
       assert (!stq(st_enq_idx).valid, "[lsu] Enqueuing uop is overwriting stq entries")
@@ -498,7 +500,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                 RegNext(dtlb.io.miss_rdy)                             &&
                                 !store_needs_order                                    &&
                                 (w == memWidth-1).B                                   && // TODO: Is this best scheduling?
-                                !ldq_retry_e.bits.order_fail))
+                                !ldq_retry_e.bits.order_fail                          &&
+                                 (IsOlder(ldq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)))) //added by Philipp Schmitz: do not retry USLs
 
   // Can we retry a store addrgen that missed in the TLB
   // - Weird edge case when sta_retry and std_incoming for same entry in same cycle. Delay this
@@ -506,6 +511,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                ( stq_retry_e.valid                            &&
                                  stq_retry_e.bits.addr.valid                  &&
                                  stq_retry_e.bits.addr_is_virtual             &&
+															   (!stq_retry_e.bits.unsafe_miss || !stq_retry_e.bits.uop.taint ) && // added by mofadiheh STT bug fix
+                                 (IsOlder(stq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)) && //added by Philipp Schmitz: do not retry USLs
                                  (w == memWidth-1).B                          &&
                                  RegNext(dtlb.io.miss_rdy)                    &&
                                  !(widthMap(i => (i != w).B               &&
@@ -539,6 +548,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !store_needs_order                                       &&
                               !block_load_wakeup                                       &&
                               (w == memWidth-1).B                                      &&
+                               (IsOlder(ldq_wakeup_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_head_idx)) &&
                               (!ldq_wakeup_e.bits.addr_is_uncacheable || (io.core.commit_load_at_rob_head &&
                                                                           ldq_head === ldq_wakeup_idx &&
                                                                           ldq_wakeup_e.bits.st_dep_mask.asUInt === 0.U))))
@@ -614,27 +626,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     "Some operations is proceeding down multiple pipes")
 
   require(memWidth <= 2)
-
-  //--------------------------------------------
-  // if incoming doesn't get priority, write data from memaddrcalc to LDQ
-  // added by tojauch for STT
-
-  for (w <- 0 until memWidth) {
-
-    when(!will_fire_load_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load) {
-
-      val ldq_idx = ldq_incoming_idx(w)
-      ldq(ldq_idx).bits.addr.valid := true.B
-      ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
-      ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
-      ldq(ldq_idx).bits.addr_is_virtual := true.B
-      ldq(ldq_idx).bits.addr_is_uncacheable := false.B
-      ldq(ldq_idx).bits.failure := exe_req(w).bits.mxcpt.valid // set failure bit if memaddcalc sends a MA exception
-
-      assert(!ldq_incoming_e(w).bits.addr.valid,
-        "[lsu] Incoming load is overwriting a valid address")
-    }
-  }
 
   //--------------------------------------------
   // TLB Access
@@ -907,6 +898,22 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     //##################################################################################################################
 
+    //--------------------------------------------
+    // if incoming doesn't get priority, write data from memaddrcalc to LDQ
+    // added by tojauch for STT
+
+    when(!will_fire_load_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load) {
+
+      val ldq_idx = ldq_incoming_idx(w)
+      ldq(ldq_idx).bits.addr.valid := true.B
+      ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
+      ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
+      ldq(ldq_idx).bits.addr_is_virtual := true.B
+
+      assert(!ldq_incoming_e(w).bits.addr.valid,
+        "[lsu] Incoming load is overwriting a valid address")
+    }
+
 
     //-------------------------------------------------------------
     // Write Addr into the LAQ/SAQ
@@ -935,6 +942,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       stq(stq_idx).bits.addr.bits  := Mux(exe_tlb_miss(w), exe_tlb_vaddr(w), exe_tlb_paddr(w))
       stq(stq_idx).bits.uop.pdst   := exe_tlb_uop(w).pdst // Needed for AMOs
       stq(stq_idx).bits.addr_is_virtual := exe_tlb_miss(w)
+      stq(stq_idx).bits.unsafe_miss     := exe_tlb_miss(w) & exe_tlb_uop(w).taint // added by mofadiheh STT bug fix
 
       assert(!(will_fire_sta_incoming(w) && stq_incoming_e(w).bits.addr.valid),
         "[lsu] Incoming store is overwriting a valid address")
