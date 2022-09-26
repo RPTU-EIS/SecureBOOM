@@ -149,6 +149,14 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
 
   val lxcpt       = Output(Valid(new Exception))
 
+  val debug_ldq       = Output(Vec(numLdqEntries, Valid(new LDQEntry)))
+  val debug_sdq       = Output(Vec(numStqEntries, Valid(new STQEntry)))
+
+  val debug_ldq_head         = Output(UInt(ldqAddrSz.W))
+  val debug_ldq_tail         = Output(UInt(ldqAddrSz.W))
+  val debug_stq_head         = Output(UInt(stqAddrSz.W)) // point to next store to clear from STQ (i.e., send to memory)
+  val debug_stq_tail         = Output(UInt(stqAddrSz.W))
+
   val tsc_reg     = Input(UInt())
 
   val perf        = Output(new Bundle {
@@ -221,7 +229,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val stq_commit_head  = Reg(UInt(stqAddrSz.W)) // point to next store to commit
   val stq_execute_head = Reg(UInt(stqAddrSz.W)) // point to next store to execute
 
-
+  io.core.debug_ldq := ldq
+  io.core.debug_sdq := stq
+  io.core.debug_ldq_head := ldq_head
+  io.core.debug_stq_head := stq_head
+  io.core.debug_ldq_tail := ldq_tail
+  io.core.debug_stq_tail := stq_tail
   // If we got a mispredict, the tail will be misaligned for 1 extra cycle
   assert (io.core.brupdate.b2.mispredict ||
           stq(stq_execute_head).valid ||
@@ -500,7 +513,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                 RegNext(dtlb.io.miss_rdy)                             &&
                                 !store_needs_order                                    &&
                                 (w == memWidth-1).B                                   && // TODO: Is this best scheduling?
-                                !ldq_retry_e.bits.order_fail))
+                                !ldq_retry_e.bits.order_fail                          &&
+                                 (IsOlder(ldq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)))) //added by Philipp Schmitz: do not retry USLs
 
   // Can we retry a store addrgen that missed in the TLB
   // - Weird edge case when sta_retry and std_incoming for same entry in same cycle. Delay this
@@ -508,7 +524,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                ( stq_retry_e.valid                            &&
                                  stq_retry_e.bits.addr.valid                  &&
                                  stq_retry_e.bits.addr_is_virtual             &&
-															 ( !stq_retry_e.bits.unsafe_miss || !stq_retry_e.bits.uop.taint ) && // added by mofadiheh STT bug fix
+															   (!stq_retry_e.bits.unsafe_miss || !stq_retry_e.bits.uop.taint ) && // added by mofadiheh STT bug fix
+                                 (IsOlder(stq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)) && //added by Philipp Schmitz: do not retry USLs
                                  (w == memWidth-1).B                          &&
                                  RegNext(dtlb.io.miss_rdy)                    &&
                                  !(widthMap(i => (i != w).B               &&
@@ -542,6 +561,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !store_needs_order                                       &&
                               !block_load_wakeup                                       &&
                               (w == memWidth-1).B                                      &&
+                               (IsOlder(ldq_wakeup_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
+                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
+                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_head_idx)) &&
                               (!ldq_wakeup_e.bits.addr_is_uncacheable || (io.core.commit_load_at_rob_head &&
                                                                           ldq_head === ldq_wakeup_idx &&
                                                                           ldq_wakeup_e.bits.st_dep_mask.asUInt === 0.U))))
