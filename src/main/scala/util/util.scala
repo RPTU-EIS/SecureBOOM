@@ -85,8 +85,8 @@ object GetNewUopAndBrMask
 	// Clear the taint if uop_rob_idx is passed pnr
 	// added by mofadiheh for taint
 	newuop.taint := ( uop.taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) ) &&
-	  ( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx)
-	//&& uop.yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
+	  ( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx
+      && uop.yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
     newuop
   }
 }
@@ -113,9 +113,8 @@ object GetNewImplicitTaint
 {
    def apply(brupdate: BrUpdateInfo, uop: MicroOp): Bool = {
      return ( uop.taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) )  &&
-											( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx)
-
-		//&& uop.yrot =/= brupdate.b1.rob_pnr_idx )
+											( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx
+                        && uop.yrot =/= brupdate.b1.rob_pnr_idx )
 		// Should we untiant if yrot == pnr? Probably it does not matter, pnr only points to load/store or pending branch instructions. so the only
 		// case in which yrot can be equal pnr is for a load that raises exception, which we know in fixed boom it will not forward the data.
 		// if we want one solution for both Spectre and Meltdown, we must not untaint in case of yrot==pnr
@@ -123,9 +122,8 @@ object GetNewImplicitTaint
 
    def apply(brupdate: BrUpdateInfo, new_taint: Bool, uop: MicroOp, yrot: UInt): Bool = {
      return ( new_taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) )  &&
-											( !IsOlder(yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx)  && uop.rob_idx =/= brupdate.b1.rob_head_idx)
-
-		//&& yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
+											( !IsOlder(yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx)  && uop.rob_idx =/= brupdate.b1.rob_head_idx
+                        && yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
    }
 }
 

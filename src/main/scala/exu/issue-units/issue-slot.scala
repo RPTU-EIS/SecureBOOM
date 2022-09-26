@@ -191,7 +191,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
       next_state := s_wait_untaint
 		}
 	} .elsewhen ( state === s_wait_untaint ) {
-		when ( slot_uop.taint === false.B ) {
+		when ( next_uop.taint === false.B ) {
 			// This only works for instructions other than store and atomic.
 			// However, in general it may be better to avoid the wait in IS for memory instructions and adapt the LSQ for it
 			next_state := s_valid_1
