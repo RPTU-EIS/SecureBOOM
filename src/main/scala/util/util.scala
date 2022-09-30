@@ -81,12 +81,12 @@ object GetNewUopAndBrMask
     (implicit p: Parameters): MicroOp = {
     val newuop = WireInit(uop)
     newuop.br_mask := uop.br_mask & ~brupdate.b1.resolve_mask
-	// also update the taint bit in case of implicit taint propagation
-	// Clear the taint if uop_rob_idx is passed pnr
-	// added by mofadiheh for taint
-	newuop.taint := ( uop.taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) ) &&
-	  ( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx)
-	//&& uop.yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
+    // also update the taint bit in case of implicit taint propagation // this feature is not used and taint_mask is always zero
+    // Clear the taint if yrot_brmask & uop.br_mask == 0 - spectre model
+    // added by mofadiheh for taint
+    newuop.taint := ( uop.taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) ) &&
+      ( (newuop.br_mask & uop.yrot_brmask) =/= 0.U ) // spectre model
+    //	  ( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx) // futuristic
     newuop
   }
 }
@@ -113,7 +113,7 @@ object GetNewImplicitTaint
 {
    def apply(brupdate: BrUpdateInfo, uop: MicroOp): Bool = {
      return ( uop.taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) )  &&
-											( !IsOlder(uop.yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx) && uop.rob_idx =/= brupdate.b1.rob_head_idx)
+       ( (GetNewBrMask(brupdate, uop.br_mask) & uop.yrot_brmask) =/= 0.U ) // added by tojauch for spectre model
 
 		//&& uop.yrot =/= brupdate.b1.rob_pnr_idx )
 		// Should we untiant if yrot == pnr? Probably it does not matter, pnr only points to load/store or pending branch instructions. so the only
@@ -121,12 +121,12 @@ object GetNewImplicitTaint
 		// if we want one solution for both Spectre and Meltdown, we must not untaint in case of yrot==pnr
    }
 
-   def apply(brupdate: BrUpdateInfo, new_taint: Bool, uop: MicroOp, yrot: UInt): Bool = {
-     return ( new_taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) )  &&
-											( !IsOlder(yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx)  && uop.rob_idx =/= brupdate.b1.rob_head_idx)
-
-		//&& yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?
-   }
+  def apply(brupdate: BrUpdateInfo, new_taint: Bool, uop: MicroOp, yrot_brmask: UInt): Bool = { // this is only used in register read
+    return ( new_taint || maskMatch(brupdate.b1.taint_mask, uop.br_mask) )  &&
+      ( (GetNewBrMask(brupdate, uop.br_mask) & yrot_brmask) =/= 0.U ) // spectre model
+    /*( !IsOlder(yrot, brupdate.b1.rob_pnr_idx, brupdate.b1.rob_head_idx)  && uop.rob_idx =/= brupdate.b1.rob_head_idx) // futuristic
+        && yrot =/= brupdate.b1.rob_pnr_idx ) // Should we untiant if yrot == pnr?*/
+  }
 }
 
 

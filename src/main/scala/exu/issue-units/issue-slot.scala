@@ -191,7 +191,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
       next_state := s_wait_untaint
 		}
 	} .elsewhen ( state === s_wait_untaint ) {
-		when ( slot_uop.taint === false.B ) {
+		when ( next_uop.taint === false.B ) {
 			// This only works for instructions other than store and atomic.
 			// However, in general it may be better to avoid the wait in IS for memory instructions and adapt the LSQ for it
 			next_state := s_valid_1
@@ -289,41 +289,57 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
     (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
 
   //if uop is aborted, the uop shoould update the yrot
-	val next_yrot = Wire(UInt(robAddrSz.W))
+  val next_yrot = Wire(UInt(robAddrSz.W))
+  val next_yrot_brmask = Wire(UInt(maxBrCount.W)) // spectre model
+
   when (io.brupdate.sec_alert.aborted_uop_valid(0) && io.brupdate.sec_alert.aborted_uop_rob_idx(0) === slot_uop.rob_idx)
   {
     next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(0)
+    next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(0) // spectre model
   }
-  .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(1) && io.brupdate.sec_alert.aborted_uop_rob_idx(1) === slot_uop.rob_idx)
-  {
-    next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(1)
-  }
-  .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(2) && io.brupdate.sec_alert.aborted_uop_rob_idx(2) === slot_uop.rob_idx)
-  {
-    next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(2)
-  }
-  .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
-  {
-    next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(3)
-  }
-  .otherwise
-  {
-    next_yrot := slot_uop.yrot
-  }
-
+    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(1) && io.brupdate.sec_alert.aborted_uop_rob_idx(1) === slot_uop.rob_idx)
+    {
+      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(1)
+      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(1) // spectre model
+    }
+    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(2) && io.brupdate.sec_alert.aborted_uop_rob_idx(2) === slot_uop.rob_idx)
+    {
+      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(2)
+      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(2) // spectre model
+    }
+    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(3) && io.brupdate.sec_alert.aborted_uop_rob_idx(3) === slot_uop.rob_idx)
+    {
+      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(3)
+      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(3) // spectre model
+    }
+    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx)
+    {
+      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(4)
+      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(4) // spectre model
+    }
+    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx)
+    {
+      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(5)
+      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(5) // spectre model
+    }
+    .otherwise
+    {
+      next_yrot := slot_uop.yrot
+      next_yrot_brmask := slot_uop.yrot_brmask
+    }
 
   // was this micro-op killed by a branch? if yes, we can't let it be valid if
   // we compact it into an other entry
   when (IsKilledByBranch(io.brupdate, slot_uop)) {
     next_state := s_invalid
   }
-
   when (!io.in_uop.valid) {
     slot_uop.br_mask := next_br_mask
+    slot_uop.taint   := next_taint // added by mofadiheh for taint
 
-		slot_uop.taint   := next_taint // added by mofadiheh for taint
+    slot_uop.yrot    := next_yrot // added by mofadiheh for taint
 
-		slot_uop.yrot    := next_yrot // added by mofadiheh for taint
+    slot_uop.yrot_brmask := next_yrot_brmask // added by mofadiheh - spectre model
   }
 
   //-------------------------------------------------------------
@@ -363,6 +379,7 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
   // added by mofadiheh for taint
   io.out_uop.taint      := next_taint
   io.out_uop.yrot       := next_yrot
+  io.out_uop.yrot_brmask:= next_yrot_brmask // added by tojauch for spectre model
 
   io.out_uop.prs1_busy  := !p1
   io.out_uop.prs2_busy  := !p2

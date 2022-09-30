@@ -166,9 +166,11 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
   fregister_read.io.rf_read_ports <> fregfile.io.read_ports
   fregister_read.io.prf_read_ports map { port => port.data := false.B }
 
-  //both are dont care because enableSFBOpt is false for our configuration
+  // added by mofadiheh
+  // all are dont care because enableSFBOpt is false for our configuration
   fregister_read.io.prf_read_ports map { port => port.taint := false.B }
   fregister_read.io.prf_read_ports map { port => port.yrot  := false.B }
+  fregister_read.io.prf_read_ports map { port => port.yrot_brmask := false.B } // added by tojauch for spectre model
 
   fregister_read.io.iss_valids <> iss_valids
   fregister_read.io.iss_uops := iss_uops
@@ -209,6 +211,7 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
   fregfile.io.rob_head_idx := io.rob_head_idx
   fregfile.io.rob_pnr_idx  := io.rob_pnr_idx
   fregfile.io.commit       := io.commit
+  fregfile.io.brupdate := io.brupdate // added by tojauch for spectre model
 
   // Cut up critical path by delaying the write by a cycle.
   // Wakeup signal is sent on cycle S0, write is now delayed until end of S1,
@@ -243,9 +246,11 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
 	  // the load itself
 
 	  when(eu.io.fresp.bits.uop.uopc === uopLD) {
-		fregfile.io.write_ports(w_cnt).bits.taint_source :=  eu.io.fresp.bits.uop.rob_idx
-	  } .otherwise {
-		fregfile.io.write_ports(w_cnt).bits.taint_source :=  eu.io.fresp.bits.uop.yrot
+      fregfile.io.write_ports(w_cnt).bits.taint_source :=  eu.io.fresp.bits.uop.rob_idx // for futuristic
+      fregfile.io.write_ports(w_cnt).bits.taint_source_brmask := eu.io.fresp.bits.uop.br_mask // for spectre model
+    } .otherwise {
+      fregfile.io.write_ports(w_cnt).bits.taint_source :=  eu.io.fresp.bits.uop.yrot // for futuristic
+      fregfile.io.write_ports(w_cnt).bits.taint_source_brmask := eu.io.fresp.bits.uop.yrot_brmask // for spectre model
 	  }
 
 	//-----------------

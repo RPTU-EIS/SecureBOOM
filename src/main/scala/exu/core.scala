@@ -1286,6 +1286,9 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 	iregfile.io.rob_pnr_idx  := rob.io.rob_pnr_idx
 	iregfile.io.rob_head_idx := rob.io.rob_head_idx
 	iregfile.io.commit       := rob.io.commit
+  iregfile.io.brupdate     := brupdate // added by tojauch for spectre model
+
+  pregfile.io.brupdate     := brupdate // added by mofadiheh to avoid compile time error - brupdate must be connected otherwise it throws uninfered width error
 
   var w_cnt = 1
   iregfile.io.write_ports(0) := WritePort(ll_wbarb.io.out, ipregSz, xLen, RT_FIX)
@@ -1319,9 +1322,11 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 			// added by mofadiheh for taint
 
 			when(wbresp.bits.uop.uopc === uopLD) {
-				iregfile.io.write_ports(w_cnt).bits.taint_source :=  wbresp.bits.uop.rob_idx
+				iregfile.io.write_ports(w_cnt).bits.taint_source :=  wbresp.bits.uop.rob_idx // for futuristic
+        iregfile.io.write_ports(w_cnt).bits.taint_source_brmask := wbresp.bits.uop.yrot_brmask // added by tojauch for spectre model
 			} .otherwise {
-				iregfile.io.write_ports(w_cnt).bits.taint_source :=  wbresp.bits.uop.yrot
+        iregfile.io.write_ports(w_cnt).bits.taint_source :=  wbresp.bits.uop.yrot // for futuristic
+        iregfile.io.write_ports(w_cnt).bits.taint_source_brmask := wbresp.bits.uop.yrot_brmask // added by tojauch for spectre model
 			}
 
 			//-----------------
@@ -1704,6 +1709,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   io.sec_monitor_signals.jmp_signals.req_is_jal := jmp_unit.io.req.bits.uop.is_jal
   io.sec_monitor_signals.jmp_signals.req_is_jalr := jmp_unit.io.req.bits.uop.is_jalr
   io.sec_monitor_signals.jmp_signals.req_yrot := jmp_unit.io.req.bits.uop.yrot
+  io.sec_monitor_signals.jmp_signals.req_yrot_brmask := jmp_unit.io.req.bits.uop.yrot_brmask // added by tojauch for spectre model
   io.sec_monitor_signals.jmp_signals.rob_idx := jmp_unit.io.req.bits.uop.rob_idx
 
   io.sec_monitor_signals.csr_signals.req_valid := csr_exe_unit.io.req.valid
@@ -1712,6 +1718,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   io.sec_monitor_signals.csr_signals.req_is_jal := csr_exe_unit.io.req.bits.uop.is_jal
   io.sec_monitor_signals.csr_signals.req_is_jalr := csr_exe_unit.io.req.bits.uop.is_jalr
   io.sec_monitor_signals.csr_signals.req_yrot := csr_exe_unit.io.req.bits.uop.yrot
+  io.sec_monitor_signals.csr_signals.req_yrot_brmask := csr_exe_unit.io.req.bits.uop.yrot_brmask // added by tojauch for spectre model
   io.sec_monitor_signals.csr_signals.rob_idx := csr_exe_unit.io.req.bits.uop.rob_idx
 
   if(usingFPU) {
@@ -1725,11 +1732,13 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
         io.sec_monitor_signals.fdiv_signals.req_valid := uop_it.valid
         io.sec_monitor_signals.fdiv_signals.req_taint := uop_it.bits.taint
         io.sec_monitor_signals.fdiv_signals.req_yrot := uop_it.bits.yrot
+        io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := uop_it.bits.yrot_brmask // added by tojauch for spectre model
         io.sec_monitor_signals.fdiv_signals.rob_idx := uop_it.bits.rob_idx
       } .otherwise {
         io.sec_monitor_signals.fdiv_signals.req_valid := false.B
         io.sec_monitor_signals.fdiv_signals.req_taint := false.B
         io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
+        io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := 0.U // added by tojauch for spectre model
         io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
       }
 
@@ -1738,11 +1747,13 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     io.sec_monitor_signals.fdiv_signals.req_valid := false.B
     io.sec_monitor_signals.fdiv_signals.req_taint := false.B
     io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
+    io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := 0.U
     io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
   }
   io.sec_monitor_signals.div_signals.req_valid := exe_units.div_valid
   io.sec_monitor_signals.div_signals.req_taint := exe_units.div_uop_taint
   io.sec_monitor_signals.div_signals.req_yrot := exe_units.div_uop_yrot
+  io.sec_monitor_signals.div_signals.req_yrot_brmask := exe_units.div_uop_yrot_brmask // spectre model
   io.sec_monitor_signals.div_signals.rob_idx := exe_units.div_uop_robid
 
 }

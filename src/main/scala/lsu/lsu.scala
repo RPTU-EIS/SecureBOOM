@@ -1438,12 +1438,21 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         // added by mofadiheh for taint
 		    // This is the first taint set, the result of any speculative load is marked as tainted
 		    // for the case rob_idx == pnr: should we set the taint or not, assuming we do the separate meltdown fix, we dont need to
-		    when (!IsOlder(ldq(ldq_idx).bits.uop.rob_idx, io.core.brupdate.b1.rob_pnr_idx, io.core.brupdate.b1.rob_head_idx) &&
-				  ldq(ldq_idx).bits.uop.rob_idx =/= io.core.brupdate.b1.rob_pnr_idx)
-		    {
-			    io.core.exe(w).iresp.bits.uop.taint := true.B
-			    io.core.exe(w).fresp.bits.uop.taint := true.B
-		    }
+        // futuristic model:
+        //when (!IsOlder(ldq(ldq_idx).bits.uop.rob_idx, io.core.brupdate.b1.rob_pnr_idx, io.core.brupdate.b1.rob_head_idx) &&
+        //  ldq(ldq_idx).bits.uop.rob_idx =/= io.core.brupdate.b1.rob_pnr_idx)
+        //{
+        //  io.core.exe(w).iresp.bits.uop.taint := true.B
+        //  io.core.exe(w).fresp.bits.uop.taint := true.B
+        //}
+        // spectre-model
+        when (ldq(ldq_idx).bits.uop.br_mask =/= 0.U)
+        {
+          io.core.exe(w).iresp.bits.uop.taint := true.B
+          io.core.exe(w).fresp.bits.uop.taint := true.B
+          io.core.exe(w).iresp.bits.uop.yrot_brmask := ldq(ldq_idx).bits.uop.br_mask
+          io.core.exe(w).fresp.bits.uop.yrot_brmask := ldq(ldq_idx).bits.uop.br_mask
+        }
 
         assert(send_iresp ^ send_fresp)
         dmem_resp_fired(w) := true.B

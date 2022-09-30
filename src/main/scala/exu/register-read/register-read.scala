@@ -82,6 +82,7 @@ class RegisterRead(
 //	val exe_reg_rs3_taint = Reg(Vec(issueWidth, Bool()))
 	val exe_reg_taint = Reg(Vec(issueWidth, Bool())) // added by mofadiheh for taint
 	val exe_reg_yrot  = Reg(Vec(issueWidth, UInt(robAddrSz.W))) // added by mofadiheh for taint
+  val exe_reg_yrot_brmask = Reg(Vec(issueWidth, UInt(maxBrCount.W))) // added by mofadiheh for taint - spectre model
 
   //-------------------------------------------------------------
   // hook up inputs
@@ -124,6 +125,14 @@ class RegisterRead(
   rrd_rs2_yrot := DontCare
   rrd_rs3_yrot := DontCare
 
+  // added by mofadiheh for taint - spectre model
+  val rrd_rs1_yrot_brmask   = Wire(Vec(issueWidth, UInt(maxBrCount.W)))
+  val rrd_rs2_yrot_brmask   = Wire(Vec(issueWidth, UInt(maxBrCount.W)))
+  val rrd_rs3_yrot_brmask   = Wire(Vec(issueWidth, UInt(maxBrCount.W)))
+  rrd_rs1_yrot_brmask := DontCare
+  rrd_rs2_yrot_brmask := DontCare
+  rrd_rs3_yrot_brmask := DontCare
+  // -----
 
   val rrd_pred_data  = Wire(Vec(issueWidth, Bool()))
   rrd_pred_data := DontCare
@@ -160,6 +169,11 @@ class RegisterRead(
     if (numReadPorts > 0) rrd_rs1_yrot(w) := Mux(RegNext(rs1_addr === 0.U), 0.U, io.rf_read_ports(idx+0).yrot)
     if (numReadPorts > 1) rrd_rs2_yrot(w) := Mux(RegNext(rs2_addr === 0.U), 0.U, io.rf_read_ports(idx+1).yrot)
     if (numReadPorts > 2) rrd_rs3_yrot(w) := Mux(RegNext(rs3_addr === 0.U), 0.U, io.rf_read_ports(idx+2).yrot)
+
+  // added by mofadiheh for taint - spectre model
+    if (numReadPorts > 0) rrd_rs1_yrot_brmask(w) := Mux(RegNext(rs1_addr === 0.U), 0.U, io.rf_read_ports(idx+0).yrot_brmask)
+    if (numReadPorts > 1) rrd_rs2_yrot_brmask(w) := Mux(RegNext(rs2_addr === 0.U), 0.U, io.rf_read_ports(idx+1).yrot_brmask)
+    if (numReadPorts > 2) rrd_rs3_yrot_brmask(w) := Mux(RegNext(rs3_addr === 0.U), 0.U, io.rf_read_ports(idx+2).yrot_brmask)
 
 
 
@@ -199,6 +213,9 @@ class RegisterRead(
   val bypassed_rs2_taint = Wire(Vec(issueWidth, Bool()))
   val bypassed_rs1_yrot = Wire(Vec(issueWidth, UInt(robAddrSz.W)))
   val bypassed_rs2_yrot = Wire(Vec(issueWidth, UInt(robAddrSz.W)))
+  // added by mofadiheh for taint - spectre model
+  val bypassed_rs1_yrot_brmask = Wire(Vec(issueWidth, UInt(maxBrCount.W)))
+  val bypassed_rs2_yrot_brmask = Wire(Vec(issueWidth, UInt(maxBrCount.W)))
 
   val bypassed_pred_data = Wire(Vec(issueWidth, Bool()))
   bypassed_pred_data := DontCare
@@ -208,22 +225,24 @@ class RegisterRead(
     var rs1_cases = Array((false.B, 0.U(registerWidth.W)))
     var rs2_cases = Array((false.B, 0.U(registerWidth.W)))
 
-  // added by mofadiheh for taint
+    // added by mofadiheh for taint
     var rs1_taint_cases = Array((false.B, false.B))
     var rs2_taint_cases = Array((false.B, false.B))
     var rs1_yrot_cases = Array((false.B, 0.U(robAddrSz.W)))
     var rs2_yrot_cases = Array((false.B, 0.U(robAddrSz.W)))
+    // added by mofadiheh for taint - spectre model
+    var rs1_yrot_brmask_cases = Array((false.B, 0.U(maxBrCount.W)))
+    var rs2_yrot_brmask_cases = Array((false.B, 0.U(maxBrCount.W)))
 
     var pred_cases = Array((false.B, 0.U(1.W)))
 
-    val prs1       = rrd_uops(w).prs1
+    val prs1 = rrd_uops(w).prs1
     val lrs1_rtype = rrd_uops(w).lrs1_rtype
-    val prs2       = rrd_uops(w).prs2
+    val prs2 = rrd_uops(w).prs2
     val lrs2_rtype = rrd_uops(w).lrs2_rtype
-    val ppred      = rrd_uops(w).ppred
+    val ppred = rrd_uops(w).ppred
 
-    for (b <- 0 until numTotalBypassPorts)
-    {
+    for (b <- 0 until numTotalBypassPorts) {
       val bypass = io.bypass(b)
       // can't use "io.bypass.valid(b) since it would create a combinational loop on branch kills"
       rs1_cases ++= Array((bypass.valid && (prs1 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
@@ -231,7 +250,7 @@ class RegisterRead(
       rs2_cases ++= Array((bypass.valid && (prs2 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
         && bypass.bits.uop.dst_rtype === RT_FIX && lrs2_rtype === RT_FIX && (prs2 =/= 0.U), bypass.bits.data))
 
- // added by mofadiheh for taint
+      // added by mofadiheh for taint
       // can't use "io.bypass.valid(b) since it would create a combinational loop on branch kills"
       rs1_taint_cases ++= Array((bypass.valid && (prs1 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
         && bypass.bits.uop.dst_rtype === RT_FIX && lrs1_rtype === RT_FIX && (prs1 =/= 0.U), bypass.bits.uop.taint))
@@ -244,25 +263,33 @@ class RegisterRead(
       rs2_yrot_cases ++= Array((bypass.valid && (prs2 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
         && bypass.bits.uop.dst_rtype === RT_FIX && lrs2_rtype === RT_FIX && (prs2 =/= 0.U), bypass.bits.uop.yrot))
 
+      // added by mofadiheh - spectre model
+      rs1_yrot_brmask_cases ++= Array((bypass.valid && (prs1 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
+        && bypass.bits.uop.dst_rtype === RT_FIX && lrs1_rtype === RT_FIX && (prs1 =/= 0.U), bypass.bits.uop.yrot_brmask))
+      rs2_yrot_brmask_cases ++= Array((bypass.valid && (prs2 === bypass.bits.uop.pdst) && bypass.bits.uop.rf_wen
+        && bypass.bits.uop.dst_rtype === RT_FIX && lrs2_rtype === RT_FIX && (prs2 =/= 0.U), bypass.bits.uop.yrot_brmask))
+
     }
 
-    for (b <- 0 until numTotalPredBypassPorts)
-    {
+    for (b <- 0 until numTotalPredBypassPorts) {
       val bypass = io.pred_bypass(b)
       pred_cases ++= Array((bypass.valid && (ppred === bypass.bits.uop.pdst) && bypass.bits.uop.is_sfb_br, bypass.bits.data))
     }
 
-    if (numReadPorts > 0) bypassed_rs1_data(w)  := MuxCase(rrd_rs1_data(w), rs1_cases)
-    if (numReadPorts > 1) bypassed_rs2_data(w)  := MuxCase(rrd_rs2_data(w), rs2_cases)
+    if (numReadPorts > 0) bypassed_rs1_data(w) := MuxCase(rrd_rs1_data(w), rs1_cases)
+    if (numReadPorts > 1) bypassed_rs2_data(w) := MuxCase(rrd_rs2_data(w), rs2_cases)
 
-  // added by mofadiheh for taint
-    if (numReadPorts > 0) bypassed_rs1_taint(w)  := MuxCase(rrd_rs1_taint(w), rs1_taint_cases)
-    if (numReadPorts > 1) bypassed_rs2_taint(w)  := MuxCase(rrd_rs2_taint(w), rs2_taint_cases)
-    if (numReadPorts > 0) bypassed_rs1_yrot(w)  := MuxCase(rrd_rs1_yrot(w), rs1_yrot_cases)
-    if (numReadPorts > 1) bypassed_rs2_yrot(w)  := MuxCase(rrd_rs2_yrot(w), rs2_yrot_cases)
+    // added by mofadiheh for taint
+    if (numReadPorts > 0) bypassed_rs1_taint(w) := MuxCase(rrd_rs1_taint(w), rs1_taint_cases)
+    if (numReadPorts > 1) bypassed_rs2_taint(w) := MuxCase(rrd_rs2_taint(w), rs2_taint_cases)
+    if (numReadPorts > 0) bypassed_rs1_yrot(w) := MuxCase(rrd_rs1_yrot(w), rs1_yrot_cases)
+    if (numReadPorts > 1) bypassed_rs2_yrot(w) := MuxCase(rrd_rs2_yrot(w), rs2_yrot_cases)
 
+    // added by mofadiheh for taint - spectre model
+    if (numReadPorts > 0) bypassed_rs1_yrot_brmask(w) := MuxCase(rrd_rs1_yrot_brmask(w), rs1_yrot_brmask_cases)
+    if (numReadPorts > 1) bypassed_rs2_yrot_brmask(w) := MuxCase(rrd_rs2_yrot_brmask(w), rs2_yrot_brmask_cases)
+    if (enableSFBOpt) bypassed_pred_data(w) := MuxCase(rrd_pred_data(w), pred_cases)
 
-    if (enableSFBOpt)     bypassed_pred_data(w) := MuxCase(rrd_pred_data(w), pred_cases)
   }
 
   //-------------------------------------------------------------
@@ -305,6 +332,29 @@ class RegisterRead(
 																							 		( rrd_rs3_taint(w)      && rrd_uops(w).frs3_en ) 				       || rrd_uops(w).taint
 
 		}
+
+  // added by mofadiheh - spectre model
+  // computing yrot_brmask
+  // mofadiheh: Note that the yrot_brmask of an in-flight uop does not need
+  // to be updated. Instead of updating and waiting for it to become zero,
+  // we can untaint whenever uop.br_mask & uop.yrot_brmask == 0, meaning that
+  // all the speculation levels of yrot is cleared
+
+  if (numReadPorts != 3) {
+
+  if (numReadPorts == 1) exe_reg_yrot_brmask(w)  := ( Mux(bypassed_rs1_taint(w) && rrd_uops(w).lrs1_rtype === RT_FIX, bypassed_rs1_yrot_brmask(w), 0.U) )
+  if (numReadPorts == 2) exe_reg_yrot_brmask(w)  := ( Mux(bypassed_rs1_taint(w) && rrd_uops(w).lrs1_rtype === RT_FIX, bypassed_rs1_yrot_brmask(w), 0.U) |
+  Mux(bypassed_rs2_taint(w) && rrd_uops(w).lrs2_rtype === RT_FIX, bypassed_rs2_yrot_brmask(w), 0.U) )
+
+  } else {
+  //			if (numReadPorts == 1) exe_reg_yrot_brmask(w)  := ( Mux(bypassed_rs1_taint(w) && rrd_uops(w).lrs1_rtype === RT_FLT, bypassed_rs1_yrot_brmask(w), 0.U) )
+  //			if (numReadPorts == 2) exe_reg_yrot_brmask(w)  := ( Mux(bypassed_rs1_taint(w) && rrd_uops(w).lrs1_rtype === RT_FLT, bypassed_rs1_yrot_brmask(w), 0.U) |
+  //																													Mux(bypassed_rs2_taint(w) && rrd_uops(w).lrs2_rtype === RT_FLT, bypassed_rs2_yrot_brmask(w), 0.U) )
+  //			if (numReadPorts == 3)
+  exe_reg_yrot_brmask(w)  := ( Mux(bypassed_rs1_taint(w) && rrd_uops(w).lrs1_rtype === RT_FLT, bypassed_rs1_yrot_brmask(w), 0.U) |
+  Mux(bypassed_rs2_taint(w) && rrd_uops(w).lrs2_rtype === RT_FLT, bypassed_rs2_yrot_brmask(w), 0.U) |
+  Mux(rrd_rs3_taint(w)      && rrd_uops(w).frs3_en, rrd_rs3_yrot(w), 0.U) )
+  }
 
 
 	  //-------------------------------------------------------------
@@ -499,8 +549,9 @@ class RegisterRead(
 		// The taint register for exe stage is separated from uop register to
 		// avoid unnecessary confusions since they get their values
 		// in different block
-		io.exe_reqs(w).bits.uop.taint :=  GetNewImplicitTaint(io.brupdate, exe_reg_taint(w), exe_reg_uops(w), exe_reg_yrot(w))
+		io.exe_reqs(w).bits.uop.taint :=  GetNewImplicitTaint(io.brupdate, exe_reg_taint(w), exe_reg_uops(w), exe_reg_yrot_brmask(w))
 		io.exe_reqs(w).bits.uop.yrot  := exe_reg_yrot(w)
+  io.exe_reqs(w).bits.uop.yrot_brmask := exe_reg_yrot_brmask(w) // added by tojauch for spectre model
 
 		dontTouch(io.exe_reqs(w).bits.uop.taint)
 		dontTouch(io.exe_reqs(w).bits.uop.yrot)

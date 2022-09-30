@@ -38,10 +38,12 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
   val div_valid = Wire(Bool())
   val div_uop_taint = Wire(Bool())
   val div_uop_yrot = Wire(UInt())
+  val div_uop_yrot_brmask = Wire(UInt()) // added by tojauch for spectre model
   val div_uop_robid = Wire(UInt())
   div_valid := false.B
   div_uop_taint := false.B
   div_uop_yrot := 0.U
+  div_uop_yrot_brmask := 0.U // added by tojauch for spectre model
   div_uop_robid := 0.U
   //*******************************
   // Act like a collection
@@ -139,6 +141,7 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
         div_valid := alu_exe_unit.io.req.valid && alu_exe_unit.io.req.bits.uop.fu_code_is(16.U(10.W)) && alu_exe_unit.hasDiv.B
         div_uop_taint := alu_exe_unit.io.req.bits.uop.taint
         div_uop_yrot := alu_exe_unit.io.req.bits.uop.yrot
+        div_uop_yrot_brmask := alu_exe_unit.io.req.bits.uop.yrot_brmask // added by tojauch for spectre model
         div_uop_robid := alu_exe_unit.io.req.bits.uop.rob_idx
       }
     }

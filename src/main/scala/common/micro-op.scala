@@ -147,6 +147,7 @@ class MicroOp(implicit p: Parameters) extends BoomBundle
 	// taint bit; added by mofadiheh for taint
 	val taint = Bool()
 	val yrot  = UInt(robAddrSz.W)
+  val yrot_brmask = UInt(maxBrCount.W) // added by tojauch for Spectre model
 
   // Do we allocate a branch tag for this?
   // SFB branches don't get a mask, they get a predicate bit
