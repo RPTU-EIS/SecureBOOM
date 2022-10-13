@@ -312,16 +312,6 @@ class IssueSlot(val numWakeupPorts: Int, val numTotalWakeupPorts: Int)(implicit 
       next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(3)
       next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(3) // spectre model
     }
-    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(4) && io.brupdate.sec_alert.aborted_uop_rob_idx(4) === slot_uop.rob_idx)
-    {
-      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(4)
-      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(4) // spectre model
-    }
-    .elsewhen (io.brupdate.sec_alert.aborted_uop_valid(5) && io.brupdate.sec_alert.aborted_uop_rob_idx(5) === slot_uop.rob_idx)
-    {
-      next_yrot := io.brupdate.sec_alert.aborted_uop_yrot(5)
-      next_yrot_brmask := io.brupdate.sec_alert.aborted_uop_yrot_brmask(5) // spectre model
-    }
     .otherwise
     {
       next_yrot := slot_uop.yrot

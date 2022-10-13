@@ -29,10 +29,10 @@ class SecurityAlert (implicit p: Parameters) extends BoomBundle
 {
 	val alert_valid = Bool()
 	val alert_mask = UInt()
-	val aborted_uop_valid = Vec(6, Bool())
-	val aborted_uop_rob_idx = Vec(6, UInt(robAddrSz.W))
-	val aborted_uop_yrot = Vec(6, UInt(robAddrSz.W))
-	val aborted_uop_yrot_brmask = Vec(6, UInt(maxBrCount.W)) // added by tojauch for spectre model
+	val aborted_uop_valid = Vec(4, Bool())
+	val aborted_uop_rob_idx = Vec(4, UInt(robAddrSz.W))
+	val aborted_uop_yrot = Vec(4, UInt(robAddrSz.W))
+	val aborted_uop_yrot_brmask = Vec(4, UInt(maxBrCount.W)) // added by tojauch for spectre model
 }
 
 class SecurityMonitorControlSignals (implicit p: Parameters) extends BoomBundle

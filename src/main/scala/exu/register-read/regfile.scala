@@ -111,7 +111,7 @@ object WritePort
     // for its result. however, for load instruction, the source of the taint for the result is
     // the load itself
 
-    when(enq.bits.uop.uopc === uopLD) {
+    when(enq.bits.uop.uopc === uopLD && enq.bits.uop.br_mask =/= 0.U) {
       wport.bits.taint_source := enq.bits.uop.rob_idx // this is for taint/untaint based on pnr
       wport.bits.taint_source_brmask := enq.bits.uop.br_mask // this is used for spectre model
     } .otherwise {
