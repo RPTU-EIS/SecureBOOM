@@ -921,6 +921,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       ldq(ldq_idx).bits.addr.valid := true.B
       ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
       ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
+      ldq(ldq_idx).bits.uop.taint := exe_req(w).bits.uop.taint
       ldq(ldq_idx).bits.addr_is_virtual := true.B
 
       assert(!ldq_incoming_e(w).bits.addr.valid,
