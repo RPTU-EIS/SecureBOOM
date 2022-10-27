@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 08/07/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh and Alex Wezel: 26/10/2022 (Meltdown Fix + STT)
 
 package boom.lsu
 
@@ -398,19 +398,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-	// for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
-	// added by mofadiheh for taint
-
-	for (i <- 0 until memWidth){
-		when (exe_req(i).valid && exe_req(i).bits.uop.uses_ldq && exe_req(i).bits.uop.taint){
-			ldq(exe_req(i).bits.uop.ldq_idx).bits.uop.taint := exe_req(i).bits.uop.taint
-		}
-		when (exe_req(i).valid && exe_req(i).bits.uop.uses_stq && exe_req(i).bits.uop.taint){
-			stq(exe_req(i).bits.uop.stq_idx).bits.uop.taint := exe_req(i).bits.uop.taint
-		}
-	}
-
-
   // -------------------------------
   // Assorted signals for scheduling
 
@@ -642,6 +629,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                     Mux(will_fire_sta_retry     (w)  , stq_retry_e.bits.uop,
                     Mux(will_fire_hella_incoming(w)  , NullMicroOp,
                                                        NullMicroOp)))))
+
+  for (w <- 0 until memWidth) {
+    assert(!(exe_tlb_uop(w).taint && (will_fire_load_incoming(w) || will_fire_load_retry(w))))
+  }
 
   val exe_tlb_vaddr = widthMap(w =>
                     Mux(will_fire_load_incoming (w) ||
@@ -908,7 +899,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       ldq(ldq_idx).bits.addr.valid := true.B
       ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
       ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
-      ldq(ldq_idx).bits.uop.taint := exe_req(w).bits.uop.taint
       ldq(ldq_idx).bits.addr_is_virtual := true.B
 
       assert(!ldq_incoming_e(w).bits.addr.valid,
@@ -1530,8 +1520,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (stq(i).valid)
     {
 
-	// the taint should be updated too
-	stq(i).bits.uop.taint   := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop) // added by mofadiheh for taint
+	    // the taint should be updated too
+      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // added by tojauch and WezelA
+      for (w <- 0 until memWidth) {
+        when(exe_req(w).bits.uop.stq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
+          stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+        }.otherwise {
+          stq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop)
+        }
+      }
 
       stq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, stq(i).bits.uop.br_mask)
 
@@ -1554,8 +1552,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (ldq(i).valid)
     {
 
-	// the taint should be updated too
-	ldq(i).bits.uop.taint   := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop) // added by mofadiheh for taint
+	    // the taint should be updated too
+      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // added by tojauch and WezelA
+      for (w <- 0 until memWidth) {
+        when(exe_req(w).bits.uop.ldq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
+          ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+        }.otherwise {
+          ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
+        }
+      }
 
       ldq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, ldq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brupdate, ldq(i).bits.uop))
