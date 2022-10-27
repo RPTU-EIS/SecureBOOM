@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 08/07/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 27/10/2022 (Meltdown Fix + STT)
 
 package boom.lsu
 
@@ -513,10 +513,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                 RegNext(dtlb.io.miss_rdy)                             &&
                                 !store_needs_order                                    &&
                                 (w == memWidth-1).B                                   && // TODO: Is this best scheduling?
-                                !ldq_retry_e.bits.order_fail                          &&
-                                 (IsOlder(ldq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
-                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
-                                 (ldq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)))) //added by Philipp Schmitz: do not retry USLs
+                                !ldq_retry_e.bits.order_fail))
 
   // Can we retry a store addrgen that missed in the TLB
   // - Weird edge case when sta_retry and std_incoming for same entry in same cycle. Delay this
@@ -525,9 +522,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                  stq_retry_e.bits.addr.valid                  &&
                                  stq_retry_e.bits.addr_is_virtual             &&
 															   (!stq_retry_e.bits.unsafe_miss || !stq_retry_e.bits.uop.taint ) && // added by mofadiheh STT bug fix
-                                 (IsOlder(stq_retry_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
-                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
-                                   (stq_retry_e.bits.uop.rob_idx === io.core.rob_head_idx)) && //added by Philipp Schmitz: do not retry USLs
                                  (w == memWidth-1).B                          &&
                                  RegNext(dtlb.io.miss_rdy)                    &&
                                  !(widthMap(i => (i != w).B               &&
@@ -561,9 +555,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !store_needs_order                                       &&
                               !block_load_wakeup                                       &&
                               (w == memWidth-1).B                                      &&
-                               (IsOlder(ldq_wakeup_e.bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
-                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_pnr_idx) ||
-                               (ldq_wakeup_e.bits.uop.rob_idx === io.core.rob_head_idx)) &&
                               (!ldq_wakeup_e.bits.addr_is_uncacheable || (io.core.commit_load_at_rob_head &&
                                                                           ldq_head === ldq_wakeup_idx &&
                                                                           ldq_wakeup_e.bits.st_dep_mask.asUInt === 0.U))))
@@ -711,7 +702,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     dtlb.io.is_USL(w) := false.B
     when (will_fire_load_incoming (w) || will_fire_stad_incoming (w) || will_fire_sta_incoming  (w)
       || will_fire_load_retry (w) || will_fire_sta_retry (w)) {
-      dtlb.io.is_USL(w) := !(IsOlder(exe_tlb_uop(w).rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) || (exe_tlb_uop(w).rob_idx === io.core.rob_pnr_idx) || (exe_tlb_uop(w).rob_idx === io.core.rob_head_idx))
+      dtlb.io.is_USL(w) := exe_tlb_uop(w).taint
     }
 
   }
@@ -1552,8 +1543,17 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (stq(i).valid)
     {
 
-	// the taint should be updated too
-	stq(i).bits.uop.taint   := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop) // added by mofadiheh for taint
+
+      // the taint should be updated too
+      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // added by tojauch and WezelA
+      for (w <- 0 until memWidth) {
+        when(exe_req(w).bits.uop.stq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
+          stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+        }.otherwise {
+          stq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop)
+        }
+      }
 
       stq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, stq(i).bits.uop.br_mask)
 
@@ -1576,8 +1576,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (ldq(i).valid)
     {
 
-	// the taint should be updated too
-	ldq(i).bits.uop.taint   := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop) // added by mofadiheh for taint
+      // the taint should be updated too
+      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // added by tojauch and WezelA
+      for (w <- 0 until memWidth) {
+        when(exe_req(w).bits.uop.ldq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
+          ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+        }.otherwise {
+          ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
+        }
+      }
 
       ldq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, ldq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brupdate, ldq(i).bits.uop))
