@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 27/10/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 22/11/2022 (Meltdown Fix + STT)
 
 package boom.lsu
 
@@ -454,15 +454,17 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
  
   // Can we fire a incoming load (don't fire tainted loads)
   val can_fire_load_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load
-																						 && !exe_req(w).bits.uop.taint) // added by tojauch for STT
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
 
   // Can we fire an incoming store addrgen + store datagen
   val can_fire_stad_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta
-                                                              && exe_req(w).bits.uop.ctrl.is_std)
+                                                              && exe_req(w).bits.uop.ctrl.is_std
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
 
   // Can we fire an incoming store addrgen
   val can_fire_sta_incoming  = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta
-                                                              && !exe_req(w).bits.uop.ctrl.is_std)
+                                                              && !exe_req(w).bits.uop.ctrl.is_std
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
 
   // Can we fire an incoming store datagen
   val can_fire_std_incoming  = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_std
@@ -676,13 +678,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     dtlb.io.req(w).bits.v           := io.ptw.status.v
     dtlb.io.req(w).bits.prv         := io.ptw.status.prv
 
-    // Added by tojauch for STT + TainedDelay
-    dtlb.io.is_USL(w) := false.B
-    when (will_fire_load_incoming (w) || will_fire_stad_incoming (w) || will_fire_sta_incoming  (w)
-      || will_fire_load_retry (w) || will_fire_sta_retry (w)) {
-      dtlb.io.is_USL(w) := exe_tlb_uop(w).taint
-    }
-
   }
   dtlb.io.kill                      := exe_kill.reduce(_||_)
   dtlb.io.sfence                    := exe_sfence
@@ -894,6 +889,38 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
       assert(!ldq_incoming_e(w).bits.addr.valid,
         "[lsu] Incoming load is overwriting a valid address")
+    }
+
+    when(!will_fire_stad_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta && exe_req(w).bits.uop.ctrl.is_std) {
+
+      val stq_idx = stq_incoming_idx(w)
+
+      stq(stq_idx).bits.addr.valid := true.B
+      stq(stq_idx).bits.addr.bits  := exe_req(w).bits.addr
+      stq(stq_idx).bits.uop.pdst   := exe_req(w).bits.uop.pdst // Needed for AMOs
+      stq(stq_idx).bits.addr_is_virtual := true.B
+
+      stq(stq_idx).bits.data.valid := true.B
+      stq(stq_idx).bits.data.bits  := exe_req(w).bits.data
+
+      assert(!(stq(stq_idx).bits.data.valid),
+        "[lsu] Incoming store is overwriting a valid data entry")
+
+      assert(!(will_fire_stad_incoming(w) && stq_incoming_e(w).bits.addr.valid),
+        "[lsu] Incoming store is overwriting a valid address")
+    }
+
+    when(!will_fire_sta_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta && !exe_req(w).bits.uop.ctrl.is_std) {
+
+      val stq_idx = stq_incoming_idx(w)
+
+      stq(stq_idx).bits.addr.valid := true.B
+      stq(stq_idx).bits.addr.bits  := exe_req(w).bits.addr
+      stq(stq_idx).bits.uop.pdst   := exe_req(w).bits.uop.pdst // Needed for AMOs
+      stq(stq_idx).bits.addr_is_virtual := true.B
+
+      assert(!(will_fire_stad_incoming(w) && stq_incoming_e(w).bits.addr.valid),
+        "[lsu] Incoming store is overwriting a valid address")
     }
 
 
