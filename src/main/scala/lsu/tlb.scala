@@ -14,15 +14,10 @@ import boom.common._
 import boom.exu.{BrResolutionInfo, Exception, FuncUnitResp, CommitSignals}
 import boom.util.{BoolToChar, AgePriorityEncoder, IsKilledByBranch, GetNewBrMask, WrapInc, IsOlder, UpdateBrMask}
 
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 25/07/2022 (STT + TaintedDelay)
-
 class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge: TLEdgeOut, p: Parameters) extends BoomModule()(p) {
   require(!instruction)
   val io = IO(new Bundle {
     val req = Flipped(Vec(memWidth, Decoupled(new TLBReq(lgMaxSize))))
-    // Delay misses for TaintedDelay Cache Design
-    // Added by tojauch and mofadiheh for STT + TaintedDelay
-    val is_USL = Input(Vec(memWidth,Bool()))
     val miss_rdy = Output(Bool())
     val resp = Output(Vec(memWidth, new TLBResp))
     val sfence = Input(Valid(new SFenceReq))
@@ -103,21 +98,21 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
     def invalidate() { valid.foreach(_ := false.B) }
     def invalidateVPN(vpn: UInt) {
       if (superpage) {
-         when (hit(vpn)) { invalidate() }
+        when (hit(vpn)) { invalidate() }
       } else {
         when (sectorTagMatch(vpn)) { valid(sectorIdx(vpn)) := false.B }
 
         // For fragmented superpage mappings, we assume the worst (largest)
         // case, and zap entries whose most-significant VPNs match
-         when (((tag ^ vpn) >> (pgLevelBits * (pgLevels - 1))) === 0.U) {
-           for ((v, e) <- valid zip entry_data)
-             when (e.fragmented_superpage) { v := false.B }
-         }
+        when (((tag ^ vpn) >> (pgLevelBits * (pgLevels - 1))) === 0.U) {
+          for ((v, e) <- valid zip entry_data)
+            when (e.fragmented_superpage) { v := false.B }
+        }
       }
     }
     def invalidateNonGlobal() {
-       for ((v, e) <- valid zip entry_data)
-         when (!e.g) { v := false.B }
+      for ((v, e) <- valid zip entry_data)
+        when (!e.g) { v := false.B }
     }
   }
 
@@ -149,8 +144,8 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   val do_refill = usingVM.B && io.ptw.resp.valid
   val invalidate_refill = state.isOneOf(s_request /* don't care */, s_wait_invalidate) || io.sfence.valid
   val mpu_ppn = widthMap(w =>
-                Mux(do_refill, refill_ppn,
-                Mux(vm_enabled(w) && special_entry.nonEmpty.B, special_entry.map(_.ppn(vpn(w))).getOrElse(0.U), io.req(w).bits.vaddr >> pgIdxBits)))
+    Mux(do_refill, refill_ppn,
+      Mux(vm_enabled(w) && special_entry.nonEmpty.B, special_entry.map(_.ppn(vpn(w))).getOrElse(0.U), io.req(w).bits.vaddr >> pgIdxBits)))
   val mpu_physaddr = widthMap(w => Cat(mpu_ppn(w), io.req(w).bits.vaddr(pgIdxBits-1, 0)))
   val pmp = Seq.fill(memWidth) { Module(new PMPChecker(lgMaxSize)) }
   for (w <- 0 until memWidth) {
@@ -178,7 +173,7 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   val hits = widthMap(w => Cat(!vm_enabled(w), real_hits(w)))
   val ppn = widthMap(w => Mux1H(hitsVec(w) :+ !vm_enabled(w), all_entries.map(_.ppn(vpn(w))) :+ vpn(w)(ppnBits-1, 0)))
 
-    // permission bit arrays
+  // permission bit arrays
   when (do_refill) {
     val pte = io.ptw.resp.bits.pte
     val newEntry = Wire(new EntryData)
@@ -255,16 +250,16 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   val lrscAllowed = widthMap(w => Mux((usingDataScratchpad || usingAtomicsOnlyForIO).B, 0.U, c_array(w)))
   val ae_array = widthMap(w =>
     Mux(misaligned(w), eff_array(w), 0.U) |
-    Mux(cmd_lrsc(w)  , ~lrscAllowed(w), 0.U))
+      Mux(cmd_lrsc(w)  , ~lrscAllowed(w), 0.U))
   val ae_ld_array = widthMap(w => Mux(cmd_read(w), ae_array(w) | ~pr_array(w), 0.U))
   val ae_st_array = widthMap(w =>
     Mux(cmd_write_perms(w)   , ae_array(w) | ~pw_array(w), 0.U) |
-    Mux(cmd_amo_logical(w)   , ~pal_array_if_cached(w), 0.U) |
-    Mux(cmd_amo_arithmetic(w), ~paa_array_if_cached(w), 0.U))
+      Mux(cmd_amo_logical(w)   , ~pal_array_if_cached(w), 0.U) |
+      Mux(cmd_amo_arithmetic(w), ~paa_array_if_cached(w), 0.U))
   val must_alloc_array = widthMap(w =>
     Mux(cmd_amo_logical(w)   , ~paa_array(w), 0.U) |
-    Mux(cmd_amo_arithmetic(w), ~pal_array(w), 0.U) |
-    Mux(cmd_lrsc(w)          , ~0.U(pal_array(w).getWidth.W), 0.U))
+      Mux(cmd_amo_arithmetic(w), ~pal_array(w), 0.U) |
+      Mux(cmd_lrsc(w)          , ~0.U(pal_array(w).getWidth.W), 0.U))
   val ma_ld_array = widthMap(w => Mux(misaligned(w) && cmd_read(w) , ~eff_array(w), 0.U))
   val ma_st_array = widthMap(w => Mux(misaligned(w) && cmd_write(w), ~eff_array(w), 0.U))
   val pf_ld_array = widthMap(w => Mux(cmd_read(w)       , ~(r_array(w) | ptw_ae_array(w)), 0.U))
@@ -274,16 +269,14 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   val tlb_hit = widthMap(w => real_hits(w).orR)
   val tlb_miss = widthMap(w => vm_enabled(w) && !bad_va(w) && !tlb_hit(w))
 
-  // Random Replacement Policy to avoid information leakage through speculative hits
-  // added by tojauch for STT + TaintedDelay
-  val sectored_rand = new RandomReplacement(sectored_entries.size)
-  val superpage_rand = new RandomReplacement(superpage_entries.size)
-  /*for (w <- 0 until memWidth) {
+  val sectored_plru = new PseudoLRU(sectored_entries.size)
+  val superpage_plru = new PseudoLRU(superpage_entries.size)
+  for (w <- 0 until memWidth) {
     when (io.req(w).valid && vm_enabled(w)) {
-      when (sector_hits(w).orR) { sectored_rand.access(OHToUInt(sector_hits(w))) }
-      when (superpage_hits(w).orR) { superpage_rand.access(OHToUInt(superpage_hits(w))) }
+      when (sector_hits(w).orR) { sectored_plru.access(OHToUInt(sector_hits(w))) }
+      when (superpage_hits(w).orR) { superpage_plru.access(OHToUInt(superpage_hits(w))) }
     }
-  }*/
+  }
 
   // Superpages create the possibility that two entries in the TLB may match.
   // This corresponds to a software bug, but we can't return complete garbage;
@@ -318,13 +311,12 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
   if (usingVM) {
     val sfence = io.sfence.valid
     for (w <- 0 until memWidth) {
-      // Added by tojauch and mofadiheh for STT + TaintedDelay
-      when (io.req(w).fire && tlb_miss(w) && state === s_ready && !io.is_USL(w)) {
+      when (io.req(w).fire && tlb_miss(w) && state === s_ready) {
         state := s_request
         r_refill_tag := vpn(w)
 
-        r_superpage_repl_addr := replacementEntry(superpage_entries, superpage_rand.way)
-        r_sectored_repl_addr  := replacementEntry(sectored_entries, sectored_rand.way)
+        r_superpage_repl_addr := replacementEntry(superpage_entries, superpage_plru.way)
+        r_sectored_repl_addr  := replacementEntry(sectored_entries, sectored_plru.way)
         r_sectored_hit_addr   := OHToUInt(sector_hits(w))
         r_sectored_hit        := sector_hits(w).orR
       }
@@ -346,19 +338,13 @@ class NBDTLB(instruction: Boolean, lgMaxSize: Int, cfg: TLBConfig)(implicit edge
         assert(!io.sfence.bits.rs1 || (io.sfence.bits.addr >> pgIdxBits) === vpn(w))
         for (e <- all_entries) {
           when (io.sfence.bits.rs1) { e.invalidateVPN(vpn(w)) }
-          .elsewhen (io.sfence.bits.rs2) { e.invalidateNonGlobal() }
-          .otherwise { e.invalidate() }
+            .elsewhen (io.sfence.bits.rs2) { e.invalidateNonGlobal() }
+            .otherwise { e.invalidate() }
         }
       }
     }
-    // Added by tojauch and mofadiheh for STT + TaintedDelay
-    when (reset.asBool) {
+    when (multipleHits.orR || reset.asBool) {
       all_entries.foreach(_.invalidate())
-    }
-    for (w <- 0 until memWidth) {
-      when (multipleHits.orR && !io.is_USL(w)) {
-        all_entries.foreach(_.invalidate())
-      }
     }
   }
 
