@@ -1538,16 +1538,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (stq(i).valid)
     {
 
-	    // the taint should be updated too
-      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // the taint should be updated too
       // added by tojauch and WezelA
-      for (w <- 0 until memWidth) {
-        when(exe_req(w).bits.uop.stq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
-          stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
-        }.otherwise {
-          stq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop)
-        }
-      }
+      stq(i).bits.uop.taint := Mux(stq(i).bits.committed, false.B, GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop))
+
 
       stq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, stq(i).bits.uop.br_mask)
 
@@ -1564,22 +1558,24 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       "Branch is trying to clear a committed store.")
   }
 
+  // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+  // added by tojauch and WezelA
+  for (w <- 0 until memWidth) {
+    when(exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
+      stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+    }
+  }
+
   // Kill loads
   for (i <- 0 until numLdqEntries)
   {
     when (ldq(i).valid)
     {
 
-	    // the taint should be updated too
-      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+      // the taint should be updated too
       // added by tojauch and WezelA
-      for (w <- 0 until memWidth) {
-        when(exe_req(w).bits.uop.ldq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
-          ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
-        }.otherwise {
-          ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
-        }
-      }
+      ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
+
 
       ldq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, ldq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brupdate, ldq(i).bits.uop))
@@ -1587,11 +1583,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         ldq(i).valid           := false.B
         ldq(i).bits.addr.valid := false.B
       }
+    }
+  }
 
-      /*assert((IsOlder(ldq(i).bits.uop.rob_idx, io.core.rob_pnr_idx, io.core.rob_head_idx) ||
-        (ldq(i).bits.uop.rob_idx === io.core.rob_pnr_idx) ||
-        (ldq(i).bits.uop.rob_idx === io.core.rob_head_idx)) || ldq(i).bits.uop.taint)*/
-
+  // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+  // added by tojauch and WezelA
+  for (w <- 0 until memWidth) {
+    when(exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
+      ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
     }
   }
 
