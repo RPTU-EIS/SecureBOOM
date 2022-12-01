@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 22/11/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 01/12/2022 (Meltdown Fix + STT)
 
 package boom.lsu
 
@@ -149,14 +149,6 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
 
   val lxcpt       = Output(Valid(new Exception))
 
-  val debug_ldq       = Output(Vec(numLdqEntries, Valid(new LDQEntry)))
-  val debug_sdq       = Output(Vec(numStqEntries, Valid(new STQEntry)))
-
-  val debug_ldq_head         = Output(UInt(ldqAddrSz.W))
-  val debug_ldq_tail         = Output(UInt(ldqAddrSz.W))
-  val debug_stq_head         = Output(UInt(stqAddrSz.W)) // point to next store to clear from STQ (i.e., send to memory)
-  val debug_stq_tail         = Output(UInt(stqAddrSz.W))
-
   val tsc_reg     = Input(UInt())
 
   val perf        = Output(new Bundle {
@@ -229,12 +221,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val stq_commit_head  = Reg(UInt(stqAddrSz.W)) // point to next store to commit
   val stq_execute_head = Reg(UInt(stqAddrSz.W)) // point to next store to execute
 
-  io.core.debug_ldq := ldq
-  io.core.debug_sdq := stq
-  io.core.debug_ldq_head := ldq_head
-  io.core.debug_stq_head := stq_head
-  io.core.debug_ldq_tail := ldq_tail
-  io.core.debug_stq_tail := stq_tail
+
   // If we got a mispredict, the tail will be misaligned for 1 extra cycle
   assert (io.core.brupdate.b2.mispredict ||
           stq(stq_execute_head).valid ||
@@ -410,19 +397,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       exe_req := VecInit(Seq.fill(memWidth) { io.core.exe(i).req })
     }
   }
-
-	// for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
-	// added by mofadiheh for taint
-
-	for (i <- 0 until memWidth){
-		when (exe_req(i).valid && exe_req(i).bits.uop.uses_ldq && exe_req(i).bits.uop.taint){
-			ldq(exe_req(i).bits.uop.ldq_idx).bits.uop.taint := exe_req(i).bits.uop.taint
-		}
-		when (exe_req(i).valid && exe_req(i).bits.uop.uses_stq && exe_req(i).bits.uop.taint){
-			stq(exe_req(i).bits.uop.stq_idx).bits.uop.taint := exe_req(i).bits.uop.taint
-		}
-	}
-
 
   // -------------------------------
   // Assorted signals for scheduling
@@ -648,6 +622,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                     Mux(will_fire_sta_retry     (w)  , stq_retry_e.bits.uop,
                     Mux(will_fire_hella_incoming(w)  , NullMicroOp,
                                                        NullMicroOp)))))
+
+  for (w <- 0 until memWidth) {
+    assert(!(exe_tlb_uop(w).taint && (will_fire_load_incoming(w) || will_fire_load_retry(w))))
+  }
 
   val exe_tlb_vaddr = widthMap(w =>
                     Mux(will_fire_load_incoming (w) ||
@@ -907,7 +885,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       ldq(ldq_idx).bits.addr.valid := true.B
       ldq(ldq_idx).bits.addr.bits := exe_req(w).bits.addr
       ldq(ldq_idx).bits.uop.pdst := exe_req(w).bits.uop.pdst
-      ldq(ldq_idx).bits.uop.taint := exe_req(w).bits.uop.taint
       ldq(ldq_idx).bits.addr_is_virtual := true.B
 
       assert(!ldq_incoming_e(w).bits.addr.valid,
@@ -1457,13 +1434,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         // added by mofadiheh for taint
 		    // This is the first taint set, the result of any speculative load is marked as tainted
 		    // for the case rob_idx == pnr: should we set the taint or not, assuming we do the separate meltdown fix, we dont need to
-        // futuristic model:
-        //when (!IsOlder(ldq(ldq_idx).bits.uop.rob_idx, io.core.brupdate.b1.rob_pnr_idx, io.core.brupdate.b1.rob_head_idx) &&
-        //  ldq(ldq_idx).bits.uop.rob_idx =/= io.core.brupdate.b1.rob_pnr_idx)
-        //{
-        //  io.core.exe(w).iresp.bits.uop.taint := true.B
-        //  io.core.exe(w).fresp.bits.uop.taint := true.B
-        //}
+
         // spectre-model
         when (ldq(ldq_idx).bits.uop.br_mask =/= 0.U)
         {
@@ -1570,17 +1541,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     when (stq(i).valid)
     {
 
-
       // the taint should be updated too
-      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
       // added by tojauch and WezelA
-      for (w <- 0 until memWidth) {
-        when(exe_req(w).bits.uop.stq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
-          stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
-        }.otherwise {
-          stq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop)
-        }
-      }
+      stq(i).bits.uop.taint := Mux(stq(i).bits.committed, false.B, GetNewImplicitTaint(io.core.brupdate, stq(i).bits.uop))
+
 
       stq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, stq(i).bits.uop.br_mask)
 
@@ -1597,6 +1561,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       "Branch is trying to clear a committed store.")
   }
 
+  // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+  // added by tojauch and WezelA
+  for (w <- 0 until memWidth) {
+    when(exe_req(w).valid && exe_req(w).bits.uop.uses_stq && exe_req(w).bits.uop.taint) {
+      stq(exe_req(w).bits.uop.stq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
+    }
+  }
+
   // Kill loads
   for (i <- 0 until numLdqEntries)
   {
@@ -1604,15 +1576,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     {
 
       // the taint should be updated too
-      // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
       // added by tojauch and WezelA
-      for (w <- 0 until memWidth) {
-        when(exe_req(w).bits.uop.ldq_idx === i.asUInt && exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
-          ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
-        }.otherwise {
-          ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
-        }
-      }
+      ldq(i).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, ldq(i).bits.uop)
+
 
       ldq(i).bits.uop.br_mask := GetNewBrMask(io.core.brupdate, ldq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brupdate, ldq(i).bits.uop))
@@ -1620,6 +1586,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         ldq(i).valid           := false.B
         ldq(i).bits.addr.valid := false.B
       }
+    }
+  }
+
+  // for every incomming exe request, the coresponding taint bit of entry in ldq or stq must be set in case of tainted operands
+  // added by tojauch and WezelA
+  for (w <- 0 until memWidth) {
+    when(exe_req(w).valid && exe_req(w).bits.uop.uses_ldq && exe_req(w).bits.uop.taint) {
+      ldq(exe_req(w).bits.uop.ldq_idx).bits.uop.taint := GetNewImplicitTaint(io.core.brupdate, exe_req(w).bits.uop)
     }
   }
 
