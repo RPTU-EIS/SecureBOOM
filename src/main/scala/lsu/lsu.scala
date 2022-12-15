@@ -1325,8 +1325,24 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   // Task 3: Clr unsafe bit in ROB for succesful translations
   //         Delay this a cycle to avoid going ahead of the exception broadcast
   //         The unsafe bit is cleared on the first translation, so no need to fire for load wakeups
+  // Changed by tojauch to only clear unsafe bit when instr. is no longer squashable
+
   for (w <- 0 until memWidth) {
-    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w) && !mem_xcpt_valid) // modified by tojauch to speed up PNR
+
+    val clearable = RegInit(true.B)
+    clearable := true.B
+
+    for (i <- 0 until numLdqEntries){
+      // if an older load or store is present, it must already be succeeded in order to clear the unsafe bit of the younger ld/st in ROB
+      when ((ldq(i).valid && IsOlder(ldq(i).bits.uop.rob_idx, lcam_uop(w).rob_idx, io.core.rob_head_idx) && !ldq(i).bits.succeeded)
+        || (stq(i).valid && IsOlder(stq(i).bits.uop.rob_idx, lcam_uop(w).rob_idx, io.core.rob_head_idx) && !stq(i).bits.succeeded)){
+        clearable := false.B
+      }
+    }
+
+    dontTouch(clearable)
+
+    io.core.clr_unsafe(w).valid := RegNext((do_st_search(w) || do_ld_search(w)) && !fired_load_wakeup(w) && !mem_xcpt_valids(w) && clearable) //added by tojauch for meltdown fix
     io.core.clr_unsafe(w).bits  := RegNext(lcam_uop(w).rob_idx)
   }
 
