@@ -1,5 +1,5 @@
 // Security Monitor for UPEC driven secure design flow
-// Implemented by Philipp
+// Implemented by Philipp Schmitz
 // This component is in charge of raising alarm if unsafe P-Alerts are detected
 // through runtime
 
@@ -39,7 +39,7 @@ class SecurityMonitorControlSignals (implicit p: Parameters) extends BoomBundle
 	val req_valid = Bool()
 	val req_taint = Bool()
 	val rob_idx = UInt(robAddrSz.W)
-	val  req_yrot = UInt(robAddrSz.W)
+	val req_yrot = UInt(robAddrSz.W)
 
 }
 
