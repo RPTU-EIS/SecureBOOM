@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 23/01/2023 (STT)
 
 package boom.exu
 
@@ -42,6 +42,8 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
     val status           = Input(new freechips.rocketchip.rocket.MStatus())
 
     val dis_uops         = Vec(dispatchWidth, Flipped(Decoupled(new MicroOp)))
+
+    val fpuexeunit_req   = new DecoupledIO(new FuncUnitReq(p(tile.TileKey).core.fpu.get.fLen + 1)) // added by tojauch for SecureBoom
 
     // +1 for recoding.
     val ll_wports        = Flipped(Vec(memWidth, Decoupled(new ExeUnitResp(fLen+1))))// from memory unit
@@ -255,7 +257,6 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
 
 	//-----------------
 
-
       when (eu.io.fresp.valid) {
         assert(eu.io.fresp.ready, "No backpressuring the FPU")
         assert(eu.io.fresp.bits.uop.rf_wen, "rf_wen must be high here")
@@ -272,7 +273,10 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
   io.to_sdq.valid := fpiu_unit.io.ll_iresp.fire &&  fpiu_is_sdq
   io.to_int.bits  := fpiu_unit.io.ll_iresp.bits
   io.to_sdq.bits  := fpiu_unit.io.ll_iresp.bits
+
   fpiu_unit.io.ll_iresp.ready := (io.to_sdq.ready && fpiu_is_sdq) || (io.to_int.ready && !fpiu_is_sdq) // changed by tojauch for SecureBOOM
+  io.fpuexeunit_req.valid       :=  fpiu_unit.io.req.valid                                                  // added for SecureBoom monitor
+  io.fpuexeunit_req.bits.uop    :=  fpiu_unit.io.req.bits.uop
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------

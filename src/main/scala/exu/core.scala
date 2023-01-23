@@ -26,7 +26,7 @@
 //   wb  - Writeback
 //   com - Commit
 
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh and Alex Wezel: 09/05/2022 (Taint Tracking)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 23/01/2023 (STT)
 
 package boom.exu
 
@@ -1722,27 +1722,23 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   io.sec_monitor_signals.csr_signals.rob_idx := csr_exe_unit.io.req.bits.uop.rob_idx
 
   if(usingFPU) {
-    //can't touch fdivsqrt unit so each uop going to fp_pipeline is checked for fdivsqrt instructions
-    for (uop_it <- fp_pipeline.io.dis_uops) {
-      when (uop_it.bits.uopc === uopFDIV_S ||
-        uop_it.bits.uopc === uopFDIV_D ||
-        uop_it.bits.uopc === uopFSQRT_S ||
-        uop_it.bits.uopc === uopFSQRT_D) {
-        //Problem if we have multiple uops dispatched to fdivsqrt at the same time? Is this even possible?
-        io.sec_monitor_signals.fdiv_signals.req_valid := uop_it.valid
-        io.sec_monitor_signals.fdiv_signals.req_taint := uop_it.bits.taint
-        io.sec_monitor_signals.fdiv_signals.req_yrot := uop_it.bits.yrot
-        io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := uop_it.bits.yrot_brmask // added by tojauch for spectre model
-        io.sec_monitor_signals.fdiv_signals.rob_idx := uop_it.bits.rob_idx
-      } .otherwise {
-        io.sec_monitor_signals.fdiv_signals.req_valid := false.B
-        io.sec_monitor_signals.fdiv_signals.req_taint := false.B
-        io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
-        io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := 0.U // added by tojauch for spectre model
-        io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
-      }
 
+    fp_pipeline.io.fpuexeunit_req.ready := true.B
+
+    when(fp_pipeline.io.fpuexeunit_req.bits.uop.fu_code_is(FU_FDV)) {
+      io.sec_monitor_signals.fdiv_signals.req_valid := fp_pipeline.io.fpuexeunit_req.valid
+      io.sec_monitor_signals.fdiv_signals.req_taint := fp_pipeline.io.fpuexeunit_req.bits.uop.taint
+      io.sec_monitor_signals.fdiv_signals.req_yrot := fp_pipeline.io.fpuexeunit_req.bits.uop.yrot
+      io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := fp_pipeline.io.fpuexeunit_req.bits.uop.yrot_brmask // added by tojauch for spectre model
+      io.sec_monitor_signals.fdiv_signals.rob_idx := fp_pipeline.io.fpuexeunit_req.bits.uop.rob_idx
+    }.otherwise{
+      io.sec_monitor_signals.fdiv_signals.req_valid := false.B
+      io.sec_monitor_signals.fdiv_signals.req_taint := false.B
+      io.sec_monitor_signals.fdiv_signals.req_yrot := 0.U
+      io.sec_monitor_signals.fdiv_signals.req_yrot_brmask := 0.U
+      io.sec_monitor_signals.fdiv_signals.rob_idx := 0.U
     }
+
   } else {
     io.sec_monitor_signals.fdiv_signals.req_valid := false.B
     io.sec_monitor_signals.fdiv_signals.req_taint := false.B
