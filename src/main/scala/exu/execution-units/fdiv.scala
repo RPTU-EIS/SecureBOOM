@@ -174,7 +174,7 @@ class FDivSqrtUnit(implicit p: Parameters)
   divsqrt.io.roundingMode := r_buffer_fin.rm
   divsqrt.io.detectTininess := DontCare
 
-  r_divsqrt_killed := r_divsqrt_killed || IsKilledByBranch(io.brupdate, r_divsqrt_uop, 4.U) || io.req.bits.kill
+  r_divsqrt_killed := r_divsqrt_killed || IsKilledByBranch(io.brupdate, r_divsqrt_uop) || io.req.bits.kill
 
   // the taint should be updated too
   //added by mofadiheh for taint
@@ -189,7 +189,7 @@ class FDivSqrtUnit(implicit p: Parameters)
     r_divsqrt_val := true.B
     r_divsqrt_fin := r_buffer_fin
     r_divsqrt_uop := r_buffer_req.uop
-    r_divsqrt_killed := IsKilledByBranch(io.brupdate, r_buffer_req.uop, 4.U) || io.req.bits.kill
+    r_divsqrt_killed := IsKilledByBranch(io.brupdate, r_buffer_req.uop) || io.req.bits.kill
     r_divsqrt_uop.br_mask := GetNewBrMask(io.brupdate, r_buffer_req.uop)
 
 	// the taint should be updated too
@@ -221,7 +221,7 @@ class FDivSqrtUnit(implicit p: Parameters)
   when (divsqrt.io.outValid_div || divsqrt.io.outValid_sqrt) {
     r_divsqrt_val := false.B
 
-    r_out_val := !r_divsqrt_killed && !IsKilledByBranch(io.brupdate, r_divsqrt_uop, 4.U) && !io.req.bits.kill
+    r_out_val := !r_divsqrt_killed && !IsKilledByBranch(io.brupdate, r_divsqrt_uop) && !io.req.bits.kill
     r_out_uop := r_divsqrt_uop
     r_out_uop.br_mask := GetNewBrMask(io.brupdate, r_divsqrt_uop)
 
