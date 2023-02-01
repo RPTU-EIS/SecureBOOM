@@ -196,16 +196,22 @@ class RegisterFileSynthesizable(
 	val next_taint = WireInit(taintfile)
 	val next_source = WireInit(taint_sources)
 
+  val bypassable_wports_taint_update = ArrayBuffer[Valid[RegisterFileWritePort]]()
+  io.write_ports zip bypassableArray map { case (wport, b) => if (b) { bypassable_wports_taint_update += wport} }
+
 	for (i <- 0 until numRegisters){
 		val base_taint = WireInit(taintfile(i))
 		val base_source = WireInit(taint_sources(i))
 		val untaint = Wire(Bool())
 		val untaint_commit = WireInit(false.B)
 
-		for (wp <- io.write_ports) {
-    	when (wp.valid && wp.bits.addr === i.asUInt) {
-				base_taint := wp.bits.taint
-				base_source := wp.bits.taint_source
+		if (bypassableArray.reduce(_||_)) {
+//			for (wp <- io.write_ports) {
+			for (wp <- bypassable_wports_taint_update) {
+	    	when (wp.valid && wp.bits.addr === i.asUInt) {
+					base_taint := wp.bits.taint
+					base_source := wp.bits.taint_source
+				}
 			}
 		}
 
