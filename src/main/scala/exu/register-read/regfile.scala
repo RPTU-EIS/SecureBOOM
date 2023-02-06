@@ -196,8 +196,6 @@ class RegisterFileSynthesizable(
 	val next_taint = WireInit(taintfile)
 	val next_source = WireInit(taint_sources)
 
-  val bypassable_wports_taint_update = ArrayBuffer[Valid[RegisterFileWritePort]]()
-  io.write_ports zip bypassableArray map { case (wport, b) => if (b) { bypassable_wports_taint_update += wport} }
 
 	for (i <- 0 until numRegisters){
 		val base_taint = WireInit(taintfile(i))
@@ -205,13 +203,10 @@ class RegisterFileSynthesizable(
 		val untaint = Wire(Bool())
 		val untaint_commit = WireInit(false.B)
 
-		if (bypassableArray.reduce(_||_)) {
-//			for (wp <- io.write_ports) {
-			for (wp <- bypassable_wports_taint_update) {
-	    	when (wp.valid && wp.bits.addr === i.asUInt) {
-					base_taint := wp.bits.taint
-					base_source := wp.bits.taint_source
-				}
+		for (wp <- io.write_ports) {
+    	when (wp.valid && wp.bits.addr === i.asUInt) {
+				base_taint := wp.bits.taint
+				base_source := wp.bits.taint_source
 			}
 		}
 
@@ -251,12 +246,18 @@ class RegisterFileSynthesizable(
     read_data(i) := regfile(read_addrs(i))
 
     // added by mofadiheh for taint
-	// we need to also take the current clock cycle untaint into the account,
-	// but only for direct reads and not bypasses, since a in a bypass if the source is already
-	// older than pnr, the taint will become zero through the BrUpdate broadcast logic
-	read_taint(i) := next_taint(read_addrs(i))
-    //read_taint(i) := taintfile(read_addrs(i)) && (!IsOlder(taint_sources(read_addrs(i)), io.rob_pnr_idx, io.rob_head_idx) && taint_sources(read_addrs(i)) =/= io.rob_pnr_idx)
-	read_taint_source(i) := next_source(read_addrs(i))
+		//read_taint(i) := next_taint(read_addrs(i)) // we should use next taint only if it is bypassable, that is handled separately
+
+
+		// we need to also take the current clock cycle untaint into the account,
+		// but only for direct reads and not bypasses, since a in a bypass if the source is already
+		// older than pnr, the taint will become zero through the BrUpdate broadcast logic
+	  read_taint(i) := taintfile(read_addrs(i)) && (!IsOlder(taint_sources(read_addrs(i)), io.rob_pnr_idx, io.rob_head_idx) && taint_sources(read_addrs(i)) =/= io.rob_pnr_idx)
+
+
+		// read_taint_source(i) := next_source(read_addrs(i)) // we should use next taint only if it is bypassable, that is handled separately
+		read_taint_source(i) := taint_sources(read_addrs(i))
+
   }
 
   // --------------------------------------------------------------
@@ -278,15 +279,15 @@ class RegisterFileSynthesizable(
 
       val bypass_data = Mux1H(VecInit(bypass_ens), VecInit(bypassable_wports.map(_.bits.data)))
 
-	  val bypass_taint = Mux1H(VecInit(bypass_ens), VecInit(bypassable_wports.map(_.bits.taint))) // added by mofadiheh for taint
+	  	val bypass_taint = Mux1H(VecInit(bypass_ens), VecInit(bypassable_wports.map(_.bits.taint))) // added by mofadiheh for taint
 
       io.read_ports(i).data := Mux(bypass_ens.reduce(_|_), bypass_data, read_data(i))
 
-	  // In read_taint we take the incomming write transaction into the
-	  // account so a bypass is autoamtically considered
-	  // added by mofadiheh for taint
-	  io.read_ports(i).taint := read_taint(i) // Mux(bypass_ens.reduce(_|_), bypass_taint, read_taint(i))
-	  io.read_ports(i).yrot  := read_taint_source(i)
+	  	// In next_taint we take the incomming write transaction into the
+		  // account so for a bypass we should take the next_taint and next_source 
+		  // added by mofadiheh for taint
+	  	io.read_ports(i).taint := Mux(bypass_ens.reduce(_|_), next_taint(read_addrs(i)), read_taint(i))
+	  	io.read_ports(i).yrot  := Mux(bypass_ens.reduce(_|_), next_source(read_addrs(i)), read_taint_source(i))
     }
   } else {
     for (i <- 0 until numReadPorts) {
