@@ -398,7 +398,10 @@ class RegisterRead(
 									IsOlder(rrd_rs3_yrot(w), bypassed_rs2_yrot(w), io.brupdate.b1.rob_head_idx)) { // if rs2_yrot is younger than r1_yrot and rs3_yrot then take rs2_yrot
 							exe_reg_yrot(w) := bypassed_rs2_yrot(w)
 						}
-	
+						.elsewhen(bypassed_rs1_yrot(w) === bypassed_rs2_yrot(w) && 
+												!IsOlder(bypassed_rs1_yrot(w), rrd_rs3_yrot(w), io.brupdate.b1.rob_head_idx)){
+							exe_reg_yrot(w) := bypassed_rs1_yrot(w)
+						}
 						.otherwise {
 							exe_reg_yrot(w) := rrd_rs3_yrot(w)
 						}
