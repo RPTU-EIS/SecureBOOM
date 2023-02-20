@@ -245,7 +245,11 @@ class FDivSqrtUnit(implicit p: Parameters)
   downvert_d2s.io.detectTininess := DontCare
   val out_flags = r_out_flags_double | Mux(r_divsqrt_fin.typeTagIn === S, downvert_d2s.io.exceptionFlags, 0.U)
 
-  io.resp.valid := r_out_val && !IsKilledByBranch(io.brupdate, r_out_uop, 4.U)
+  io.resp.valid := r_out_val //&& !IsKilledByBranch(io.brupdate, r_out_uop, 4.U)
+  // removed by schmitz48 and tojauch
+  // corner case in emulation and simulation
+  // incoming tainted request that gets an alert can prevent valid response from being sent
+  // data is lost and program hangs
   io.resp.bits.uop := r_out_uop
   io.resp.bits.data :=
     Mux(r_divsqrt_fin.typeTagIn === S,
