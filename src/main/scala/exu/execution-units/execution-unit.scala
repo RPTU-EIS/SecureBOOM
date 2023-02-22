@@ -203,7 +203,7 @@ class ALUExeUnit(
   hasIfpu          : Boolean = false,
   hasMem           : Boolean = false,
   hasRocc          : Boolean = false,
-  alert_identifier : UInt) //added by mofadiheh for taint
+  alert_identifier : UInt = 0.U) //added by mofadiheh for taint
   (implicit p: Parameters)
   extends ExecutionUnit(
     readsIrf         = true,

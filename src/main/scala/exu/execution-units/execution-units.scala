@@ -118,8 +118,7 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
     for (w <- 0 until memWidth) {
       val memExeUnit = Module(new ALUExeUnit(
         hasAlu           = false,
-        hasMem           = true,
-		alert_identifier = 0.asUInt)) //added by mofadiheh for taint
+        hasMem           = true))
 
       memExeUnit.io.ll_iresp.ready := DontCare
 
@@ -135,7 +134,10 @@ class ExecutionUnits(val fpu: Boolean)(implicit val p: Parameters) extends HasBo
         hasMul           = is_nth(2),
         hasDiv           = is_nth(3),
         hasIfpu          = is_nth(4) && usingFPU,
-		alert_identifier = (1<<w).asUInt)) //added by mofadiheh for taint
+
+        // added by schmitz48 and tojauch
+        // only create alert_ID for matching units
+        alert_identifier = ((1<<w) % 4).asUInt ))
       exe_units += alu_exe_unit
       if(is_nth(3)) {
         div_valid := alu_exe_unit.io.req.valid && alu_exe_unit.io.req.bits.uop.fu_code_is(16.U(10.W)) && alu_exe_unit.hasDiv.B
