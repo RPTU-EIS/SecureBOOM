@@ -316,7 +316,7 @@ class RegisterFileSynthesizable(
       // added by mofadiheh for taint
       io.read_ports(i).taint := Mux(bypass_ens.reduce(_|_), next_taint(read_addrs(i)), read_taint(i))
       io.read_ports(i).yrot  := Mux(bypass_ens.reduce(_|_), next_source(read_addrs(i)), read_taint_source(i))
-      io.read_ports(i).yrot_brmask := Mux(bypass_ens.reduce(_|_), next_source_brmask(read_addrs(i)), read_taint_source(i)) // for spectre-model
+      io.read_ports(i).yrot_brmask := Mux(bypass_ens.reduce(_|_), next_source_brmask(read_addrs(i)), read_taint_source_brmask(i)) // for spectre-model
     }
   } else {
     for (i <- 0 until numReadPorts) {
