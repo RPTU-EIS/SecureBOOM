@@ -41,6 +41,8 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
     val fcsr_rm          = Input(UInt(width=freechips.rocketchip.tile.FPConstants.RM_SZ.W))
     val status           = Input(new freechips.rocketchip.rocket.MStatus())
 
+    val fp_issue_unit_ready = Output(Bool()) // added by schmitz48 for performance counter
+
     val dis_uops         = Vec(dispatchWidth, Flipped(Decoupled(new MicroOp)))
 
     val fpuexeunit_req   = new DecoupledIO(new FuncUnitReq(p(tile.TileKey).core.fpu.get.fLen + 1)) // added by tojauch for SecureBoom
@@ -79,6 +81,9 @@ class FpPipeline(val numTotalWakeupPorts: Int)(implicit p: Parameters) extends B
                          issueParams.find(_.iqType == IQT_FP.litValue).get,
                          numWakeupPorts, numTotalWakeupPorts))
   issue_unit.suggestName("fp_issue_unit")
+
+  io.fp_issue_unit_ready := issue_unit.io.issue_unit_ready // added by schmitz48 for performance counter
+
   val fregfile       = Module(new RegisterFileSynthesizable(numFpPhysRegs,
                          exe_units.numFrfReadPorts,
                          exe_units.numFrfWritePorts + memWidth,

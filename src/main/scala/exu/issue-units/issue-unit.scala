@@ -75,6 +75,8 @@ class IssueUnitIO(
 {
   val dis_uops         = Vec(dispatchWidth, Flipped(Decoupled(new MicroOp)))
 
+  val issue_unit_ready = Output(Bool())
+
   val iss_valids       = Output(Vec(issueWidth, Bool()))
   val iss_uops         = Output(Vec(issueWidth, new MicroOp()))
   val wakeup_ports     = Flipped(Vec(numWakeupPorts, Valid(new IqWakeup(maxPregSz))))
@@ -159,6 +161,7 @@ abstract class IssueUnit(
       dis_uops(w).ppred_busy := false.B
     }
   }
+  io.issue_unit_ready := (0 until issueWidth).map { i => (io.dis_uops(i).ready)}.reduce(_||_) // added by schmitz48 for performance counter
 
   //-------------------------------------------------------------
   // Issue Table
