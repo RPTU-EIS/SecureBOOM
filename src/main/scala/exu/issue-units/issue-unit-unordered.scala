@@ -82,8 +82,17 @@ class IssueUnitStatic(
     entry_wen_oh(i) := temp_uop_val.asUInt
   }
 
+  // debug signal
+  // added by tojauch
+  val stall_counter = RegInit(0.U(32.W))
+
   for (w <- 0 until dispatchWidth) {
     io.dis_uops(w).ready := allocated(w)
+
+    stall_counter := Mux(!allocated(w), stall_counter+1.U, stall_counter)
+
+    dontTouch(stall_counter)
+
   }
 
   //-------------------------------------------------------------
