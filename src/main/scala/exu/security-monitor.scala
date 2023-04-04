@@ -92,6 +92,28 @@ class SecurityMonitor(implicit p: Parameters) extends BoomModule
 	io.sec_alert.aborted_uop_valid(2) := fdiv_alert
 	io.sec_alert.aborted_uop_valid(3) := div_alert
 
+	// debug signals
+	// added by tojauch
+	val jmp_alert_counter  = RegInit(0.U(32.W))
+	val csr_alert_counter  = RegInit(0.U(32.W))
+	val fdiv_alert_counter = RegInit(0.U(32.W))
+	val div_alert_counter  = RegInit(0.U(32.W))
+
+	val alert_counter  = RegInit(0.U(64.W))
+
+	jmp_alert_counter := Mux(jmp_alert, jmp_alert_counter + 1.U, jmp_alert_counter)
+	csr_alert_counter := Mux(csr_alert, csr_alert_counter + 1.U, csr_alert_counter)
+	fdiv_alert_counter := Mux(fdiv_alert, fdiv_alert_counter + 1.U, fdiv_alert_counter)
+	div_alert_counter := Mux(div_alert, div_alert_counter + 1.U, div_alert_counter)
+
+	alert_counter := jmp_alert_counter + csr_alert_counter + fdiv_alert_counter + div_alert_counter
+
+	dontTouch(jmp_alert_counter)
+	dontTouch(csr_alert_counter)
+	dontTouch(fdiv_alert_counter)
+	dontTouch(div_alert_counter)
+	dontTouch(alert_counter)
+
 	when(jmp_alert === true.B) {
 		io.sec_alert.aborted_uop_valid(0) := true.B
 		io.sec_alert.aborted_uop_rob_idx(0) := io.sec_mon_inputs.jmp_signals.rob_idx
