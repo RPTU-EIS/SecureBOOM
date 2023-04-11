@@ -354,6 +354,35 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   //-------------------------------------------------------------
   // Uarch Hardware Performance Events (HPEs)
 
+  // Debug Counters
+  // added by tojauch
+  val int_issue_stall_counter = RegInit(0.U(32.W))
+  val mem_issue_stall_counter = RegInit(0.U(32.W))
+  val fp_pipeline_stall_counter = RegInit(0.U(32.W))
+
+  int_issue_stall_counter := Mux(!int_iss_unit.io.issue_unit_ready, int_issue_stall_counter+1.U, int_issue_stall_counter)
+  mem_issue_stall_counter := Mux(!mem_iss_unit.io.issue_unit_ready, mem_issue_stall_counter+1.U, mem_issue_stall_counter)
+  fp_pipeline_stall_counter := Mux(!fp_pipeline.io.fp_issue_unit_ready, fp_pipeline_stall_counter+1.U, fp_pipeline_stall_counter)
+
+  dontTouch(int_issue_stall_counter)
+  dontTouch(mem_issue_stall_counter)
+  dontTouch(fp_pipeline_stall_counter)
+
+  val jmp_alert_counter = RegInit(0.U(32.W))
+  val csr_alert_counter = RegInit(0.U(32.W))
+  val fdiv_alert_counter = RegInit(0.U(32.W))
+  val div_alert_counter = RegInit(0.U(32.W))
+
+  jmp_alert_counter := Mux(((io.sec_alert.alert_mask & 1.U) =/= 0.U) && io.sec_alert.alert_valid, jmp_alert_counter+1.U, jmp_alert_counter)
+  csr_alert_counter := Mux(((io.sec_alert.alert_mask & 2.U) =/= 0.U) && io.sec_alert.alert_valid, csr_alert_counter+1.U, csr_alert_counter)
+  fdiv_alert_counter := Mux(((io.sec_alert.alert_mask & 4.U) =/= 0.U) && io.sec_alert.alert_valid, fdiv_alert_counter+1.U, fdiv_alert_counter)
+  div_alert_counter := Mux(((io.sec_alert.alert_mask & 8.U) =/= 0.U) && io.sec_alert.alert_valid, div_alert_counter+1.U, div_alert_counter)
+
+  dontTouch(jmp_alert_counter)
+  dontTouch(csr_alert_counter)
+  dontTouch(fdiv_alert_counter)
+  dontTouch(div_alert_counter)
+
   val perfEvents = new freechips.rocketchip.rocket.EventSets(Seq(
     new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
       //("exception", () => rob.io.com_xcpt.valid),
@@ -362,15 +391,15 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
       ("nop",       () => false.B))),
 
     new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
-//      ("I$ blocked",                        () => icache_blocked),
-      //("nop",                               () => false.B),
+//      ("I$ blocked",                         () => icache_blocked),
+      //("nop",                                () => false.B),
       // ("branch misprediction",              () => br_unit.brinfo.mispredict),
       // ("control-flow target misprediction", () => br_unit.brinfo.mispredict &&
       //                                             br_unit.brinfo.cfi_type === CFI_JALR),
-      ("int issue stations full",                             () =>   !int_iss_unit.io.issue_unit_ready),
-      ("mem issue stations full",                             () =>   !mem_iss_unit.io.issue_unit_ready),//,
-      ("fp issue stations full",                             () =>   !fp_pipeline.io.fp_issue_unit_ready)//rob.io.flush.valid)
-      //("branch resolved",                   () => br_unit.brinfo.valid)
+      ("int issue stations full",              () =>   !int_iss_unit.io.issue_unit_ready),
+      ("mem issue stations full",              () =>   !mem_iss_unit.io.issue_unit_ready),
+      ("fp issue stations full",               () =>   !fp_pipeline.io.fp_issue_unit_ready)//,
+      //("branch resolved",                    () => br_unit.brinfo.valid)
     )),
 
     new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
@@ -379,7 +408,15 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
       //("D$ release",  () => io.lsu.perf.release),
       //("ITLB miss",   () => io.ifu.perf.tlbMiss),
       //("DTLB miss",   () => io.lsu.perf.tlbMiss),
-      ("L2 TLB miss", () => false.B)))))//io.ptw.perf.l2miss)))))
+      ("jmp alert",                          () =>   ((io.sec_alert.alert_mask & 1.U) =/= 0.U) && io.sec_alert.alert_valid),
+      ("csr alert",                          () =>   ((io.sec_alert.alert_mask  & 2.U) =/= 0.U) && io.sec_alert.alert_valid),
+      ("fdiv alert",                         () =>   ((io.sec_alert.alert_mask  & 4.U) =/= 0.U) && io.sec_alert.alert_valid)
+    )),
+      //("L2 TLB miss", () => false.B)))))//io.ptw.perf.l2miss)))))
+
+  new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
+    ("div alert",                          () =>   ((io.sec_alert.alert_mask  & 8.U) =/= 0.U) && io.sec_alert.alert_valid)))))
+
   val csr = Module(new freechips.rocketchip.rocket.CSRFile(perfEvents, boomParams.customCSRs.decls))
   csr.io.inst foreach { c => c := DontCare }
   csr.io.rocc_interrupt := io.rocc.interrupt

@@ -87,15 +87,8 @@ class IssueUnitCollapsing(
                             (!issue_slots(i).will_be_valid || issue_slots(i).clear) && !(issue_slots(i).in_uop.valid))
   val num_available = PopCount(will_be_available)
 
-  // debug signal
-  // added by tojauch
-  val stall_counter = RegInit(0.U(32.W))
-
   for (w <- 0 until dispatchWidth) {
     io.dis_uops(w).ready := RegNext(num_available > w.U)
-
-    stall_counter := Mux(!RegNext(num_available > w.U), stall_counter+1.U, stall_counter)
-    dontTouch(stall_counter)
   }
 
   //-------------------------------------------------------------
