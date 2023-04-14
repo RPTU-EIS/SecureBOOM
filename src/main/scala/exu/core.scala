@@ -383,11 +383,13 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   dontTouch(fdiv_alert_counter)
   dontTouch(div_alert_counter)
 
+
+
   val perfEvents = new freechips.rocketchip.rocket.EventSets(Seq(
     new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
       //("exception", () => rob.io.com_xcpt.valid),
       ("nop",       () => false.B),
-      ("nop",       () => false.B),
+      ("div alert",                          () =>   ((io.sec_alert.alert_mask  & 8.U) =/= 0.U) && io.sec_alert.alert_valid),
       ("nop",       () => false.B))),
 
     new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
@@ -411,11 +413,11 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
       ("jmp alert",                          () =>   ((io.sec_alert.alert_mask & 1.U) =/= 0.U) && io.sec_alert.alert_valid),
       ("csr alert",                          () =>   ((io.sec_alert.alert_mask  & 2.U) =/= 0.U) && io.sec_alert.alert_valid),
       ("fdiv alert",                         () =>   ((io.sec_alert.alert_mask  & 4.U) =/= 0.U) && io.sec_alert.alert_valid)
-    )),
+    ))))/*,
       //("L2 TLB miss", () => false.B)))))//io.ptw.perf.l2miss)))))
 
   new freechips.rocketchip.rocket.EventSet((mask, hits) => (mask & hits).orR, Seq(
-    ("div alert",                          () =>   ((io.sec_alert.alert_mask  & 8.U) =/= 0.U) && io.sec_alert.alert_valid)))))
+    ("div alert",                          () =>   ((io.sec_alert.alert_mask  & 8.U) =/= 0.U) && io.sec_alert.alert_valid)))))*/
 
   val csr = Module(new freechips.rocketchip.rocket.CSRFile(perfEvents, boomParams.customCSRs.decls))
   csr.io.inst foreach { c => c := DontCare }

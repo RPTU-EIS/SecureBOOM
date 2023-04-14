@@ -73,11 +73,12 @@ int main (int argc, char** argv)
   write_csr(mhpmevent4, 0x201); 
   write_csr(mhpmevent5, 0x401); 
 
-  write_csr(mhpmevent6, 0x102); 
+  write_csr(mhpmevent6, 0x104); 
   write_csr(mhpmevent7, 0x202); 
   write_csr(mhpmevent8, 0x402); 
 
-  write_csr(mhpmevent9, 0x104);
+  write_csr(mhpmevent9, 0x102);
+  write_csr(mhpmevent10, 0x103);
 
   printf("Event Select: %x\n", read_csr_safe(mhpmevent3));
   printf("Event Select: %x\n", read_csr_safe(mhpmevent4));
@@ -87,6 +88,7 @@ int main (int argc, char** argv)
   printf("Event Select: %x\n", read_csr_safe(mhpmevent7));
   printf("Event Select: %x\n", read_csr_safe(mhpmevent8));
   printf("Event Select: %x\n", read_csr_safe(mhpmevent9));
+  printf("Event Select: %x\n", read_csr_safe(mhpmevent10));
 
   unsigned long start_hpmc3 = read_csr_safe(hpmcounter3);
   unsigned long start_hpmc4 = read_csr_safe(hpmcounter4);
@@ -96,6 +98,7 @@ int main (int argc, char** argv)
   unsigned long start_hpmc7 = read_csr_safe(hpmcounter7);
   unsigned long start_hpmc8 = read_csr_safe(hpmcounter8);
   unsigned long start_hpmc9 = read_csr_safe(hpmcounter9);
+  unsigned long start_hpmc10 = read_csr_safe(hpmcounter10);
 
         One_Fifty       Int_1_Loc;
   REG   One_Fifty       Int_2_Loc;
@@ -282,6 +285,7 @@ int main (int argc, char** argv)
   unsigned long end_hpmc7 = read_csr_safe(hpmcounter7);
   unsigned long end_hpmc8 = read_csr_safe(hpmcounter8);
   unsigned long end_hpmc9 = read_csr_safe(hpmcounter9);
+  unsigned long end_hpmc10 = read_csr_safe(hpmcounter10);
 
   //setStats(0);
   printf("Value of Event 3: %d\n", end_hpmc3 - start_hpmc3);
@@ -292,6 +296,7 @@ int main (int argc, char** argv)
   printf("Value of Event 7: %d\n", end_hpmc7 - start_hpmc7);
   printf("Value of Event 8: %d\n", end_hpmc8 - start_hpmc8);
   printf("Value of Event 9: %d\n", end_hpmc9 - start_hpmc9);
+  printf("Value of Event 10: %d\n", end_hpmc10 - start_hpmc10);
 
   return 0;
 }
