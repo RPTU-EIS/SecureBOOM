@@ -78,8 +78,8 @@ class SecurityMonitor(implicit p: Parameters) extends BoomModule
 	jmp_alert := io.sec_mon_inputs.jmp_signals.req_valid && io.sec_mon_inputs.jmp_signals.req_taint && (io.sec_mon_inputs.jmp_signals.req_is_br || io.sec_mon_inputs.jmp_signals.req_is_jal || io.sec_mon_inputs.jmp_signals.req_is_jalr)
 	csr_alert := io.sec_mon_inputs.csr_signals.req_valid && io.sec_mon_inputs.csr_signals.req_taint && (io.sec_mon_inputs.csr_signals.req_is_br || io.sec_mon_inputs.csr_signals.req_is_jal || io.sec_mon_inputs.csr_signals.req_is_jalr)
 	//every tainted (f)div uop is transient
-	fdiv_alert := io.sec_mon_inputs.fdiv_signals.req_valid && io.sec_mon_inputs.fdiv_signals.req_taint
-	div_alert := io.sec_mon_inputs.div_signals.req_valid && io.sec_mon_inputs.div_signals.req_taint
+	fdiv_alert := false.B//io.sec_mon_inputs.fdiv_signals.req_valid && io.sec_mon_inputs.fdiv_signals.req_taint
+	div_alert := false.B // io.sec_mon_inputs.div_signals.req_valid && io.sec_mon_inputs.div_signals.req_taint
 	//continue adding like this for alert encoding
 	io.sec_alert.alert_mask := jmp_alert * 1.U + csr_alert * 2.U + fdiv_alert * 4.U + div_alert * 8.U
 
