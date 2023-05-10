@@ -417,7 +417,7 @@ class ALUUnit(isJmpUnit: Boolean = false, numStages: Int = 1, dataWidth: Int, al
   brinfo.cfi_type       := Mux(is_jalr, CFI_JALR,
                            Mux(is_br  , CFI_BR, CFI_X))
   brinfo.taken          := is_taken
-  brinfo.pc_sel         := pc_sel
+  brinfo.pc_sel         := Mux(brinfo.valid, pc_sel, 0.U)
 
   brinfo.jalr_target    := DontCare
 
@@ -444,7 +444,7 @@ class ALUUnit(isJmpUnit: Boolean = false, numStages: Int = 1, dataWidth: Int, al
     jalr_target_xlen := (jalr_target_base + target_offset).asUInt
     val jalr_target = (encodeVirtualAddress(jalr_target_xlen, jalr_target_xlen).asSInt & -2.S).asUInt
 
-    brinfo.jalr_target := jalr_target
+    brinfo.jalr_target := Mux(brinfo.valid, jalr_target, 0.U) // added by tojauch for SecureBOOM
     val cfi_idx = ((uop.pc_lob ^ Mux(io.get_ftq_pc.entry.start_bank === 1.U, 1.U << log2Ceil(bankBytes), 0.U)))(log2Ceil(fetchWidth),1)
 
     when (pc_sel === PC_JALR) {
