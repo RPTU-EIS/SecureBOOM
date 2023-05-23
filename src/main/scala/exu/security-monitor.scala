@@ -1,5 +1,5 @@
 // Security Monitor for UPEC driven secure design flow
-// Implemented by Philipp Schmitz
+// Implemented by Philipp Schmitz for SecureBOOM
 // This component is in charge of raising alarm if unsafe P-Alerts are detected
 // through runtime
 

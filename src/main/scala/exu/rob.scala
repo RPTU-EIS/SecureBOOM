@@ -21,7 +21,7 @@
 //    - Exceptions are only taken when at the head of the commit bundle --
 //      this helps deal with loads, stores, and refetch instructions.
 //
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh and Alex Wezel: 29/06/2022 (STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh and Alex Wezel: 29/06/2022 (SecureBOOM)
 
 package boom.exu
 
@@ -337,18 +337,6 @@ class Rob(
     } .elsewhen (io.enq_valids.reduce(_|_) && !rob_val(rob_tail)) {
       rob_uop(rob_tail).debug_inst := BUBBLE // just for debug purposes
     }
-
-    //-----------------------------------------------
-    // Execute
-    // Added by tojauch for STT + InvisiBOOM
-
-    /*for (i <- 0 until numWakeupPorts) {
-      val load_is_safe =
-      val row_idx = GetRowIdx(.rob_idx)
-      when (load_is_safe) {
-        rob_unsafe(row_idx)   := false.B
-      }
-    }*/
 
     //-----------------------------------------------
     // Writeback

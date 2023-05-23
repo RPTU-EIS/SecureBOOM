@@ -41,7 +41,7 @@
 //    - ability to turn off things if VM is disabled
 //    - reconsider port count of the wakeup, retry stuff
 //
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 22/11/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 22/11/2022 (SecureBOOM)
 
 package boom.lsu
 
@@ -444,7 +444,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   // -----------------------
   // Determine what can fire
   
-  // comment by mofadiheh: for STT futuristic, we don't need to use
+  // comment by mofadiheh: for SecureBOOM futuristic, we don't need to use
   // the IsOlder function, incoming and retry can only be executed if
   // rob_idx===pnr. Pnr cannot move past a load so an outstanding load can
   // never be older than pnr. We only need to check this for incomming and
@@ -452,17 +452,17 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
  
   // Can we fire a incoming load (don't fire tainted loads)
   val can_fire_load_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load
-                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for SecureBOOM
 
   // Can we fire an incoming store addrgen + store datagen
   val can_fire_stad_incoming = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta
                                                               && exe_req(w).bits.uop.ctrl.is_std
-                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for SecureBOOM
 
   // Can we fire an incoming store addrgen
   val can_fire_sta_incoming  = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_sta
                                                               && !exe_req(w).bits.uop.ctrl.is_std
-                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for STT
+                                                              && !exe_req(w).bits.uop.taint) // added by tojauch for SecureBOOM
 
   // Can we fire an incoming store datagen
   val can_fire_std_incoming  = widthMap(w => exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_std
@@ -481,7 +481,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                ( ldq_retry_e.valid                                    &&
                                  ldq_retry_e.bits.addr.valid                          &&
                                  ldq_retry_e.bits.addr_is_virtual                     &&
-																 !ldq_retry_e.bits.uop.taint                          &&  // added by tojauch for STT
+																 !ldq_retry_e.bits.uop.taint                          &&  // added by tojauch for SecureBOOM
                                 !p1_block_load_mask(ldq_retry_idx)                    &&
                                 !p2_block_load_mask(ldq_retry_idx)                    &&
                                 RegNext(dtlb.io.miss_rdy)                             &&
@@ -495,7 +495,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                ( stq_retry_e.valid                            &&
                                  stq_retry_e.bits.addr.valid                  &&
                                  stq_retry_e.bits.addr_is_virtual             &&
-															   !stq_retry_e.bits.uop.taint                  && // added by mofadiheh STT bug fix fix
+															   !stq_retry_e.bits.uop.taint                  && // added by mofadiheh for SecureBOOM
                                  (w == memWidth-1).B                          &&
                                  RegNext(dtlb.io.miss_rdy)                    &&
                                  !(widthMap(i => (i != w).B               &&
@@ -523,7 +523,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                               !ldq_wakeup_e.bits.addr_is_virtual                       &&
                               !ldq_wakeup_e.bits.executed                              &&
                               !ldq_wakeup_e.bits.order_fail                            &&
-															!ldq_wakeup_e.bits.uop.taint                             && // added by tojauch for STT
+															!ldq_wakeup_e.bits.uop.taint                             && // added by tojauch for SecureBOOM
                               !p1_block_load_mask(ldq_wakeup_idx)                      &&
                               !p2_block_load_mask(ldq_wakeup_idx)                      &&
                               !store_needs_order                                       &&
@@ -682,7 +682,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   // exceptions
   // ---
-  // modified by tojauch for STT and Meltdown Fix
+  // modified by tojauch for SecureBOOM
   val ma_ld = widthMap(w => ((will_fire_load_incoming(w) && exe_req(w).bits.mxcpt.valid) || // We get ma_ld in memaddrcalc
                               (will_fire_load_retry(w) && ldq(ldq_retry_idx).bits.failure) ||
                                 (will_fire_load_wakeup(w) && ldq(ldq_wakeup_idx).bits.failure))) // Came in with a ma_ld but didn't get priority
@@ -875,7 +875,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     //--------------------------------------------
     // if incoming doesn't get priority, write data from memaddrcalc to LDQ
-    // added by tojauch for STT
+    // added by tojauch for SecureBOOM
 
     when(!will_fire_load_incoming(w) && exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_load) {
 
