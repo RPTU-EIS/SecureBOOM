@@ -9,7 +9,7 @@
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (SecureBOOM)
 
 package boom.exu
 
@@ -22,44 +22,6 @@ import freechips.rocketchip.config.Parameters
 
 import boom.common._
 import boom.util.{BoomCoreStringPrefix, IsOlder}
-
-//object UpdateTaint
-// added by mofadiheh for taint
-//{
-////	def apply (old_taint: Bool, old_source: UInt(robAddrSz.W), write_ports : Vec(numWritePorts, Valid(new RegisterFileWritePort(maxPregSz, registerWidth))),
-////							index: UInt(addrWidth.W), commits: CommitSignals, head_idx: UInt, pnr_idx: UInt): Bool = {
-//	def apply (old_taint: Bool, old_source: UInt, write_ports : Vec[Valid(RegisterFileWritePort)],
-//							index: UInt, commits: CommitSignals, head_idx: UInt, pnr_idx: UInt): Bool = {
-//		val base_taint = WireInit(old_taint)
-//		val base_source = WireInit(old_source)
-//		val untaint = Wire(Bool())
-//		val untaint_commit = WireInit(false.B)
-//
-//		for (wp <- write_ports) {
-//    	when (wp.valid && wp.bits.addr === index) {
-//				base_taint := wp.bits.taint
-//				base_source := wp.bits.taint_source
-//			}
-//		}
-//
-//		for (w <- 0 until coreWidth) {
-//			when (commit.valids(w) && commit.uops(w).rob_idx === base_source)
-//			{
-//				untaint_commit := true.B
-//			}
-//		}
-//		when (IsOlder(base_source, pnr_idx, head_idx) || base_source === pnr_idx || untaint_commit )
-//		{
-//			untaint := true.B
-//		}
-//		.otherwise
-//		{
-//			untaint := false.B
-//		}
-//		return base_taint && !untaint
-//	}
-//}
-
 
 /**
  * IO bundle for a register read port

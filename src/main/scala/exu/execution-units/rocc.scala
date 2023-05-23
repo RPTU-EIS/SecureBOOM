@@ -10,7 +10,7 @@
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (SecureBOOM)
 
 package boom.exu
 

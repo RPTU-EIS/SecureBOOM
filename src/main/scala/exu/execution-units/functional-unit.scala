@@ -14,7 +14,7 @@
 //
 // TODO: explore possibility of conditional IO fields? if a branch unit... how to add extra to IO in subclass?
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (SecureBOOM)
 
 package boom.exu
 
