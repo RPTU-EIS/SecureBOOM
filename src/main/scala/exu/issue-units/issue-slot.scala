@@ -13,7 +13,7 @@
 // TODO XXX make a separate issueSlot for MemoryIssueSlots, and only they break apart stores.
 // TODO Disable ldspec for FP queue.
 //
-// Additional source code by Tobias Jauch and Mohammad Rahmani Fadiheh: 29/06/2022 (Meltdown Fix + STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 29/06/2022 (SecureBOOM for Spectre threat model)
 
 package boom.exu
 

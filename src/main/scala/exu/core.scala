@@ -26,7 +26,7 @@
 //   wb  - Writeback
 //   com - Commit
 
-// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 23/01/2023 (STT)
+// Additional source code by Tobias Jauch, Mohammad Rahmani Fadiheh, Philipp Schmitz and Alex Wezel: 29/06/2022 (SecureBOOM for Spectre threat model)
 
 package boom.exu
 

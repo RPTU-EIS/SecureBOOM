@@ -1,5 +1,9 @@
-﻿# BOOM with STT
-[tbd]
+﻿# Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL
+
+Ever since the Spectre and Meltdown attacks proved Transient Execution Side Channels to be a fundamental vulnerability of modern processors, secure microarchitecture design is a challenge considered urgent by chipmakers. Various countermeasures against these threats were proposed on the electronic system level. However, addressing all possible attack scenarios requires the design and analysis of bit- and cycle-accurate implementations. 
+
+In our paper [Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL](https://www.uni-kl.de), we present a novel secure-by-construction RTL design methodology based on a generic information flow tracking infrastructure. The methodology uses formal verification to systematically detect
+possible leakage paths and to customize the generic infrastructure accordingly for the design. We propose an iterative flow which semi-automatically leads to an RTL design that is guaranteed to be secure w.r.t. transient execution attacks. A case study for the methodology is conducted on BOOMv3, an open-source RISC-V processor with a deep out-of-order pipeline, and the resulting secure RTL design is benchmarked on an FPGA setup. Our design outperforms a design based on conservative countermeasures, improving the incurred overhead by 3X / 4X (depending on the threat model) while maintaining the same level of security. 
 
 
 ## The Berkeley Out-of-Order RISC-V Processor
@@ -30,8 +34,3 @@ A more detailed description of the employed formal verification technique can be
 [2] Fadiheh, M. R., Müller, J., Brinkmann, R., Mitra, S., Stoffel, D., & Kunz, W. (2020, July). [A formal approach for detecting vulnerabilities to transient execution attacks in out-of-order processors](https://ieeexplore.ieee.org/document/9218572). In 2020 57th ACM/IEEE Design Automation Conference (DAC) (pp. 1-6). IEEE.
 
 [3] Fadiheh, M. R.ezel, A., Mueller, J., Bormann, J., Fung, J., Mitra, S., Stoffel, D. & Kunz, W. (2021). [An Exhaustive Approach to Detecting Transient Execution Side Channels in RTL Designs of Processors](https://arxiv.org/abs/2108.01979). arXiv e-prints, arXiv-2108. 
-
-
-## Disclaimer
-
-This reporitory is a work-in-progress and remains in active development.
