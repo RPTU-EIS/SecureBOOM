@@ -1,0 +1,396 @@
+include "blackboxing.vli";
+include "micro_soc_macro_p_alerts.vli";
+include "STEP_macro.vli";
+
+property UPEC_Step;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: ME_4_new;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+    
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+    
+    at t: 	(soc1/lsu/stq_0_bits_addr_bits != soc2/lsu/stq_0_bits_addr_bits ? soc1/lsu/stq_0_bits_uop_taint && soc2/lsu/stq_0_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_1_bits_addr_bits != soc2/lsu/stq_1_bits_addr_bits ? soc1/lsu/stq_1_bits_uop_taint && soc2/lsu/stq_1_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_2_bits_addr_bits != soc2/lsu/stq_2_bits_addr_bits ? soc1/lsu/stq_2_bits_uop_taint && soc2/lsu/stq_2_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_3_bits_addr_bits != soc2/lsu/stq_3_bits_addr_bits ? soc1/lsu/stq_3_bits_uop_taint && soc2/lsu/stq_3_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_4_bits_addr_bits != soc2/lsu/stq_4_bits_addr_bits ? soc1/lsu/stq_4_bits_uop_taint && soc2/lsu/stq_4_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_5_bits_addr_bits != soc2/lsu/stq_5_bits_addr_bits ? soc1/lsu/stq_5_bits_uop_taint && soc2/lsu/stq_5_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_6_bits_addr_bits != soc2/lsu/stq_6_bits_addr_bits ? soc1/lsu/stq_6_bits_uop_taint && soc2/lsu/stq_6_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_7_bits_addr_bits != soc2/lsu/stq_7_bits_addr_bits ? soc1/lsu/stq_7_bits_uop_taint && soc2/lsu/stq_7_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_8_bits_addr_bits != soc2/lsu/stq_8_bits_addr_bits ? soc1/lsu/stq_8_bits_uop_taint && soc2/lsu/stq_8_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_9_bits_addr_bits != soc2/lsu/stq_9_bits_addr_bits ? soc1/lsu/stq_9_bits_uop_taint && soc2/lsu/stq_9_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_10_bits_addr_bits != soc2/lsu/stq_10_bits_addr_bits ? soc1/lsu/stq_10_bits_uop_taint && soc2/lsu/stq_10_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_11_bits_addr_bits != soc2/lsu/stq_11_bits_addr_bits ? soc1/lsu/stq_11_bits_uop_taint && soc2/lsu/stq_11_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_12_bits_addr_bits != soc2/lsu/stq_12_bits_addr_bits ? soc1/lsu/stq_12_bits_uop_taint && soc2/lsu/stq_12_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_13_bits_addr_bits != soc2/lsu/stq_13_bits_addr_bits ? soc1/lsu/stq_13_bits_uop_taint && soc2/lsu/stq_13_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_14_bits_addr_bits != soc2/lsu/stq_14_bits_addr_bits ? soc1/lsu/stq_14_bits_uop_taint && soc2/lsu/stq_14_bits_uop_taint : 1'b1) &&
+    		(soc1/lsu/stq_15_bits_addr_bits != soc2/lsu/stq_15_bits_addr_bits ? soc1/lsu/stq_15_bits_uop_taint && soc2/lsu/stq_15_bits_uop_taint : 1'b1);
+
+prove:
+
+    at t+1: hold_equivalence;
+
+end property;
+
+property UPEC_Step_original;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: hold_equivalence;
+
+end property;
+
+property no_invalid_p_alert_propagation;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_invalid_p_alerts;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: state_equivalence_invalid_p_alerts;
+
+end property;
+
+property propagation_test;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+    during[t, t+1]: (soc1/core/iregister_read/exe_reg_uops_0_uopc != 7'h6c && soc1/core/iregister_read/exe_reg_uops_1_uopc != 7'h6c && soc1/core/iregister_read/exe_reg_uops_2_uopc != 7'h6c) &&
+    			(soc2/core/iregister_read/exe_reg_uops_0_uopc != 7'h6c && soc2/core/iregister_read/exe_reg_uops_1_uopc != 7'h6c && soc2/core/iregister_read/exe_reg_uops_2_uopc != 7'h6c);
+    		    //is_br,is_jal, is_jalr and uopc consistent
+    during[t, t+1]: (soc1/core/iregister_read/exe_reg_uops_1_is_br ? soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h18 || soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h19 ||
+    		     soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h1a || soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h1b || soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h1c ||
+    		     soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h1d : 1'b1) &&
+    		    (soc1/core/iregister_read/exe_reg_uops_1_is_jal ? soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h25 : 1'b1) &&
+		    (soc1/core/iregister_read/exe_reg_uops_1_is_jalr ? soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h26 : 1'b1) &&
+		    (soc2/core/iregister_read/exe_reg_uops_1_is_br ? soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h18 || soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h19 ||
+    		     soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h1a || soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h1b || soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h1c ||
+    		     soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h1d : 1'b1) &&
+    		    (soc2/core/iregister_read/exe_reg_uops_1_is_jal ? soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h25 : 1'b1) &&
+		    (soc2/core/iregister_read/exe_reg_uops_1_is_jalr ? soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h26 : 1'b1) &&
+		    //br_type and uopc consistent
+		    (soc1/core/iregister_read/exe_reg_uops_1_ctrl_br_type == 4'h8 ? soc1/core/iregister_read/exe_reg_uops_1_uopc == 7'h26 : 1'b1) &&
+		    (soc2/core/iregister_read/exe_reg_uops_1_ctrl_br_type == 4'h8 ? soc2/core/iregister_read/exe_reg_uops_1_uopc == 7'h26 : 1'b1);
+    at t: test_equivalence;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: (soc1/core/b2_jalr_target!=soc2/core/b2_jalr_target ? ((!soc1/core/b2_mispredict && !soc2/core/b2_mispredict) && (soc1/core/b2_cfi_type != 3'h3 && soc2/core/b2_cfi_type != 3'h3)) : 1'b1);
+
+end property;
+
+property branch_test;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+2]: blackboxing;
+    during[t, t+2]: secret_data_protected;
+    during[t, t+2]: microequivalence == 1'b1;
+    during[t, t+2]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+2]: fast_forward_assumptions == 1'b1;
+    during[t, t+2]: soc1/core/brinfos_1_cfi_type != 3'h3 && soc2/core/brinfos_1_cfi_type != 3'h3;
+
+    at t: brinfos_equivalence;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+2: frontend_equivalence;
+
+end property;
+
+property branch_test_2;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+2]: blackboxing;
+    during[t, t+2]: secret_data_protected;
+    during[t, t+2]: microequivalence == 1'b1;
+    during[t, t+2]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+2]: fast_forward_assumptions == 1'b1;
+    during[t, t+2]: soc1/core/brinfos_1_cfi_type != 3'h3 && soc2/core/brinfos_1_cfi_type != 3'h3;
+    during[t, t+2]: soc1/core/REG == soc1/core/REG_1 && soc2/core/REG == soc2/core/REG_1;
+    during[t, t+2]: !soc1/frontend/tlb/multipleHits && !soc2/frontend/tlb/multipleHits; //software constraint see comments in tlb.scala
+
+    at t: brinfos_equivalence_commit;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+3: frontend_equivalence;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_R0_addr;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/R0_addr == soc2/dcache/data/array_0_0/R0_addr;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_R0_en;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/R0_en == soc2/dcache/data/array_0_0/R0_en;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_W0_addr;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/W0_addr == soc2/dcache/data/array_0_0/W0_addr;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_W0_data_0;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/W0_data_0 == soc2/dcache/data/array_0_0/W0_data_0;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_W0_en;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/W0_en == soc2/dcache/data/array_0_0/W0_en;
+
+end property;
+
+property UPEC_BB_Step_array_0_0_W0_mask_0;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/data/array_0_0/W0_mask_0 == soc2/dcache/data/array_0_0/W0_mask_0;
+
+end property;
+
+property UPEC_BB_Step_meta_0_RW0_addr;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/meta_0/tag_array/RW0_addr == soc2/dcache/meta_0/tag_array/RW0_addr;
+
+end property;
+
+property UPEC_BB_Step_meta_0_RW0_en;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/meta_0/tag_array/RW0_en == soc2/dcache/meta_0/tag_array/RW0_en;
+
+end property;
+
+property UPEC_BB_Step_meta_0_RW0_wdata_0;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/meta_0/tag_array/RW0_wdata_0 == soc2/dcache/meta_0/tag_array/RW0_wdata_0;
+
+end property;
+
+property UPEC_BB_Step_meta_0_RW0_wmask_0;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/meta_0/tag_array/RW0_wmask_0 == soc2/dcache/meta_0/tag_array/RW0_wmask_0;
+
+end property;
+
+property UPEC_BB_Step_meta_0_RW0_wmode;
+
+  dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+  assume:
+
+    during[t, t+1]: blackboxing;
+    during[t, t+1]: secret_data_protected;
+    during[t, t+1]: microequivalence == 1'b1;
+    during[t, t+1]: pnr_between_head_and_root_id == 1'b1;
+    during[t, t+1]: fast_forward_assumptions == 1'b1;
+
+    at t: state_equivalence_STEP;
+    at t: init_mispred_signals;
+
+prove:
+
+    at t+1: soc1/dcache/meta_0/tag_array/RW0_wmode == soc2/dcache/meta_0/tag_array/RW0_wmode;
+
+end property;

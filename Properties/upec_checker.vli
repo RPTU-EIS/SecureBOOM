@@ -1,0 +1,254 @@
+include "micro_soc_macro.vli";
+include "blackboxing.vli";
+
+macro integer O := 5; end macro;
+
+macro integer P := 4; end macro;
+
+macro integer USER_MODE := 0; end macro;
+
+macro unsigned secret_cache_tag := 20'h8abcd; end macro;
+
+constraint no_reset :=
+  !reset;
+end constraint;
+
+constraint br_tag_in_bounds :=
+  (soc1/core/brinfos_0_uop_br_tag < 4'hc) &&
+  (soc1/core/brinfos_1_uop_br_tag < 4'hc) &&
+  (soc2/core/brinfos_0_uop_br_tag < 4'hc) &&
+  (soc2/core/brinfos_1_uop_br_tag < 4'hc);
+end constraint;
+
+constraint ptw_secret :=
+	ptw_not_accessing_secret;
+end constraint;
+
+macro boolean page_table_protection :=
+  ( ( ( soc1/lsu/will_fire_hella_incoming_0_will_fire || soc1/lsu/will_fire_load_retry_0_will_fire )  &&
+	  soc1/lsu/dtlb/io_resp_0_paddr[31:12] == secret_cache_tag && !soc1/lsu/dtlb/io_resp_0_miss)
+    ? ( soc1/lsu/dtlb/io_resp_0_pf_ld ) : true ) &&
+
+  ( ( ( soc2/lsu/will_fire_hella_incoming_0_will_fire || soc2/lsu/will_fire_load_retry_0_will_fire )  &&
+	  soc2/lsu/dtlb/io_resp_0_paddr[31:12] == secret_cache_tag && !soc2/lsu/dtlb/io_resp_0_miss)
+    ? ( soc2/lsu/dtlb/io_resp_0_pf_ld ) : true ) ;
+end macro;
+
+
+macro boolean secret_load_speculative :=
+  ( soc1/dcache/io_lsu_resp_0_valid && soc2/dcache/io_lsu_resp_0_valid &&
+      soc1/dcache/io_lsu_resp_0_bits_data != soc2/dcache/io_lsu_resp_0_bits_data ) ?
+	soc1/dcache/s2_req_0_uop_br_mask != 12'h0 && soc2/dcache/s2_req_0_uop_br_mask != 12'h0 : true;
+end macro;
+
+
+macro boolean secret_data_protected :=
+  ( soc1/core/csr/io_status_dprv == USER_MODE ) ?
+	page_table_protection : secret_load_speculative ;
+end macro;
+
+macro boolean init_mispred_signals :=
+  ((mispred_flag_1 == 1'b0) && (mispred_flag_2 == 1'b0) && (mispred_happened_1 == 1'b0) && (mispred_happened_2 == 1'b0));
+end macro;
+
+macro boolean rob_idx_correctly_set :=
+  (soc1/core/rob/rob_uop__0_rob_idx == 6'h0) && (soc2/core/rob/rob_uop__0_rob_idx == 6'h0) &&
+  (soc1/core/rob/rob_uop__1_rob_idx == 6'h2) && (soc2/core/rob/rob_uop__1_rob_idx == 6'h2) &&
+  (soc1/core/rob/rob_uop__2_rob_idx == 6'h4) && (soc2/core/rob/rob_uop__2_rob_idx == 6'h4) &&
+  (soc1/core/rob/rob_uop__3_rob_idx == 6'h6) && (soc2/core/rob/rob_uop__3_rob_idx == 6'h6) &&
+  (soc1/core/rob/rob_uop__4_rob_idx == 6'h8) && (soc2/core/rob/rob_uop__4_rob_idx == 6'h8) &&
+  (soc1/core/rob/rob_uop__5_rob_idx == 6'ha) && (soc2/core/rob/rob_uop__5_rob_idx == 6'ha) &&
+  (soc1/core/rob/rob_uop__6_rob_idx == 6'hc) && (soc2/core/rob/rob_uop__6_rob_idx == 6'hc) &&
+  (soc1/core/rob/rob_uop__7_rob_idx == 6'he) && (soc2/core/rob/rob_uop__7_rob_idx == 6'he) &&
+  (soc1/core/rob/rob_uop__8_rob_idx == 6'h10) && (soc2/core/rob/rob_uop__8_rob_idx == 6'h10) &&
+  (soc1/core/rob/rob_uop__9_rob_idx == 6'h12) && (soc2/core/rob/rob_uop__9_rob_idx == 6'h12) &&
+  (soc1/core/rob/rob_uop__10_rob_idx == 6'h14) && (soc2/core/rob/rob_uop__10_rob_idx == 6'h14) &&
+  (soc1/core/rob/rob_uop__11_rob_idx == 6'h16) && (soc2/core/rob/rob_uop__11_rob_idx == 6'h16) &&
+  (soc1/core/rob/rob_uop__12_rob_idx == 6'h18) && (soc2/core/rob/rob_uop__12_rob_idx == 6'h18) &&
+  (soc1/core/rob/rob_uop__13_rob_idx == 6'h1a) && (soc2/core/rob/rob_uop__13_rob_idx == 6'h1a) &&
+  (soc1/core/rob/rob_uop__14_rob_idx == 6'h1c) && (soc2/core/rob/rob_uop__14_rob_idx == 6'h1c) &&
+  (soc1/core/rob/rob_uop__15_rob_idx == 6'h1e) && (soc2/core/rob/rob_uop__15_rob_idx == 6'h1e) &&
+  (soc1/core/rob/rob_uop__16_rob_idx == 6'h20) && (soc2/core/rob/rob_uop__16_rob_idx == 6'h20) &&
+  (soc1/core/rob/rob_uop__17_rob_idx == 6'h22) && (soc2/core/rob/rob_uop__17_rob_idx == 6'h22) &&
+  (soc1/core/rob/rob_uop__18_rob_idx == 6'h24) && (soc2/core/rob/rob_uop__18_rob_idx == 6'h24) &&
+  (soc1/core/rob/rob_uop__19_rob_idx == 6'h26) && (soc2/core/rob/rob_uop__19_rob_idx == 6'h26) &&
+  (soc1/core/rob/rob_uop__20_rob_idx == 6'h28) && (soc2/core/rob/rob_uop__20_rob_idx == 6'h28) &&
+  (soc1/core/rob/rob_uop__21_rob_idx == 6'h2a) && (soc2/core/rob/rob_uop__21_rob_idx == 6'h2a) &&
+  (soc1/core/rob/rob_uop__22_rob_idx == 6'h2c) && (soc2/core/rob/rob_uop__22_rob_idx == 6'h2c) &&
+  (soc1/core/rob/rob_uop__23_rob_idx == 6'h2e) && (soc2/core/rob/rob_uop__23_rob_idx == 6'h2e) &&
+  (soc1/core/rob/rob_uop__24_rob_idx == 6'h30) && (soc2/core/rob/rob_uop__24_rob_idx == 6'h30) &&
+  (soc1/core/rob/rob_uop__25_rob_idx == 6'h32) && (soc2/core/rob/rob_uop__25_rob_idx == 6'h32) &&
+  (soc1/core/rob/rob_uop__26_rob_idx == 6'h34) && (soc2/core/rob/rob_uop__26_rob_idx == 6'h34) &&
+  (soc1/core/rob/rob_uop__27_rob_idx == 6'h36) && (soc2/core/rob/rob_uop__27_rob_idx == 6'h36) &&
+  (soc1/core/rob/rob_uop__28_rob_idx == 6'h38) && (soc2/core/rob/rob_uop__28_rob_idx == 6'h38) &&
+  (soc1/core/rob/rob_uop__29_rob_idx == 6'h3a) && (soc2/core/rob/rob_uop__29_rob_idx == 6'h3a) &&
+  (soc1/core/rob/rob_uop__30_rob_idx == 6'h3c) && (soc2/core/rob/rob_uop__30_rob_idx == 6'h3c) &&
+  (soc1/core/rob/rob_uop__31_rob_idx == 6'h3e) && (soc2/core/rob/rob_uop__31_rob_idx == 6'h3e) &&
+
+  (soc1/core/rob/rob_uop_1_0_rob_idx == 6'h1) && (soc2/core/rob/rob_uop_1_0_rob_idx == 6'h1) &&
+  (soc1/core/rob/rob_uop_1_1_rob_idx == 6'h3) && (soc2/core/rob/rob_uop_1_1_rob_idx == 6'h3) &&
+  (soc1/core/rob/rob_uop_1_2_rob_idx == 6'h5) && (soc2/core/rob/rob_uop_1_2_rob_idx == 6'h5) &&
+  (soc1/core/rob/rob_uop_1_3_rob_idx == 6'h7) && (soc2/core/rob/rob_uop_1_3_rob_idx == 6'h7) &&
+  (soc1/core/rob/rob_uop_1_4_rob_idx == 6'h9) && (soc2/core/rob/rob_uop_1_4_rob_idx == 6'h9) &&
+  (soc1/core/rob/rob_uop_1_5_rob_idx == 6'hb) && (soc2/core/rob/rob_uop_1_5_rob_idx == 6'hb) &&
+  (soc1/core/rob/rob_uop_1_6_rob_idx == 6'hd) && (soc2/core/rob/rob_uop_1_6_rob_idx == 6'hd) &&
+  (soc1/core/rob/rob_uop_1_7_rob_idx == 6'hf) && (soc2/core/rob/rob_uop_1_7_rob_idx == 6'hf) &&
+  (soc1/core/rob/rob_uop_1_8_rob_idx == 6'h11) && (soc2/core/rob/rob_uop_1_8_rob_idx == 6'h11) &&
+  (soc1/core/rob/rob_uop_1_9_rob_idx == 6'h13) && (soc2/core/rob/rob_uop_1_9_rob_idx == 6'h13) &&
+  (soc1/core/rob/rob_uop_1_10_rob_idx == 6'h15) && (soc2/core/rob/rob_uop_1_10_rob_idx == 6'h15) &&
+  (soc1/core/rob/rob_uop_1_11_rob_idx == 6'h17) && (soc2/core/rob/rob_uop_1_11_rob_idx == 6'h17) &&
+  (soc1/core/rob/rob_uop_1_12_rob_idx == 6'h19) && (soc2/core/rob/rob_uop_1_12_rob_idx == 6'h19) &&
+  (soc1/core/rob/rob_uop_1_13_rob_idx == 6'h1b) && (soc2/core/rob/rob_uop_1_13_rob_idx == 6'h1b) &&
+  (soc1/core/rob/rob_uop_1_14_rob_idx == 6'h1d) && (soc2/core/rob/rob_uop_1_14_rob_idx == 6'h1d) &&
+  (soc1/core/rob/rob_uop_1_15_rob_idx == 6'h1f) && (soc2/core/rob/rob_uop_1_15_rob_idx == 6'h1f) &&
+  (soc1/core/rob/rob_uop_1_16_rob_idx == 6'h21) && (soc2/core/rob/rob_uop_1_16_rob_idx == 6'h21) &&
+  (soc1/core/rob/rob_uop_1_17_rob_idx == 6'h23) && (soc2/core/rob/rob_uop_1_17_rob_idx == 6'h23) &&
+  (soc1/core/rob/rob_uop_1_18_rob_idx == 6'h25) && (soc2/core/rob/rob_uop_1_18_rob_idx == 6'h25) &&
+  (soc1/core/rob/rob_uop_1_19_rob_idx == 6'h27) && (soc2/core/rob/rob_uop_1_19_rob_idx == 6'h27) &&
+  (soc1/core/rob/rob_uop_1_20_rob_idx == 6'h29) && (soc2/core/rob/rob_uop_1_20_rob_idx == 6'h29) &&
+  (soc1/core/rob/rob_uop_1_21_rob_idx == 6'h2b) && (soc2/core/rob/rob_uop_1_21_rob_idx == 6'h2b) &&
+  (soc1/core/rob/rob_uop_1_22_rob_idx == 6'h2d) && (soc2/core/rob/rob_uop_1_22_rob_idx == 6'h2d) &&
+  (soc1/core/rob/rob_uop_1_23_rob_idx == 6'h2f) && (soc2/core/rob/rob_uop_1_23_rob_idx == 6'h2f) &&
+  (soc1/core/rob/rob_uop_1_24_rob_idx == 6'h31) && (soc2/core/rob/rob_uop_1_24_rob_idx == 6'h31) &&
+  (soc1/core/rob/rob_uop_1_25_rob_idx == 6'h33) && (soc2/core/rob/rob_uop_1_25_rob_idx == 6'h33) &&
+  (soc1/core/rob/rob_uop_1_26_rob_idx == 6'h35) && (soc2/core/rob/rob_uop_1_26_rob_idx == 6'h35) &&
+  (soc1/core/rob/rob_uop_1_27_rob_idx == 6'h37) && (soc2/core/rob/rob_uop_1_27_rob_idx == 6'h37) &&
+  (soc1/core/rob/rob_uop_1_28_rob_idx == 6'h39) && (soc2/core/rob/rob_uop_1_28_rob_idx == 6'h39) &&
+  (soc1/core/rob/rob_uop_1_29_rob_idx == 6'h3b) && (soc2/core/rob/rob_uop_1_29_rob_idx == 6'h3b) &&
+  (soc1/core/rob/rob_uop_1_30_rob_idx == 6'h3d) && (soc2/core/rob/rob_uop_1_30_rob_idx == 6'h3d) &&
+  (soc1/core/rob/rob_uop_1_31_rob_idx == 6'h3f) && (soc2/core/rob/rob_uop_1_31_rob_idx == 6'h3f)
+  ;
+end macro;
+
+macro boolean correct_lrs_types :=
+	((soc1/core/iregister_read/rrd_uops_1_REG_is_br || soc1/core/iregister_read/rrd_uops_1_REG_is_jal || soc1/core/iregister_read/rrd_uops_1_REG_is_jalr) && soc1/core/iregister_read/rrd_valids_1_REG ? soc1/core/iregister_read/rrd_uops_1_REG_lrs1_rtype == 2'b0 && soc1/core/iregister_read/rrd_uops_1_REG_lrs2_rtype == 2'b0 : 1'b1) &&
+	((soc1/core/iregister_read/rrd_uops_2_REG_is_br || soc1/core/iregister_read/rrd_uops_2_REG_is_jal || soc1/core/iregister_read/rrd_uops_2_REG_is_jalr) && soc1/core/iregister_read/rrd_valids_2_REG ? soc1/core/iregister_read/rrd_uops_2_REG_lrs1_rtype == 2'b0 && soc1/core/iregister_read/rrd_uops_2_REG_lrs2_rtype == 2'b0 : 1'b1) &&
+	((soc2/core/iregister_read/rrd_uops_1_REG_is_br || soc2/core/iregister_read/rrd_uops_1_REG_is_jal || soc2/core/iregister_read/rrd_uops_1_REG_is_jalr) && soc2/core/iregister_read/rrd_valids_1_REG ? soc2/core/iregister_read/rrd_uops_1_REG_lrs1_rtype == 2'b0 && soc2/core/iregister_read/rrd_uops_1_REG_lrs2_rtype == 2'b0 : 1'b1) &&
+	((soc2/core/iregister_read/rrd_uops_2_REG_is_br || soc2/core/iregister_read/rrd_uops_2_REG_is_jal || soc2/core/iregister_read/rrd_uops_2_REG_is_jalr) && soc2/core/iregister_read/rrd_valids_2_REG ? soc2/core/iregister_read/rrd_uops_2_REG_lrs1_rtype == 2'b0 && soc2/core/iregister_read/rrd_uops_2_REG_lrs2_rtype == 2'b0 : 1'b1);
+end macro;
+
+macro boolean regfile_addrs_in_bounds :=
+	(soc1/core/iregfile/io_write_ports_0_bits_addr < 7'h50) &&
+	(soc1/core/iregfile/io_write_ports_1_bits_addr < 7'h50) &&
+	(soc1/core/iregfile/io_write_ports_2_bits_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_0_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_1_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_2_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_3_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_4_addr < 7'h50) &&
+	(soc1/core/iregfile/io_read_ports_5_addr < 7'h50) &&
+	(soc2/core/iregfile/io_write_ports_0_bits_addr < 7'h50) &&
+	(soc2/core/iregfile/io_write_ports_1_bits_addr < 7'h50) &&
+	(soc2/core/iregfile/io_write_ports_2_bits_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_0_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_1_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_2_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_3_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_4_addr < 7'h50) &&
+	(soc2/core/iregfile/io_read_ports_5_addr < 7'h50);
+end macro;
+
+constraint functional_invariants := 
+	consistent_stq_committed_1 && consistent_stq_committed_2 && STQ_uops_equals_ROB_1 && STQ_uops_equals_ROB_2 && LDQ_uops_equals_ROB_1 && LDQ_uops_equals_ROB_2 &&/* ROB_uops_equal_STQ_1 && ROB_uops_equal_STQ_2 &&
+	ROB_uops_equal_LDQ_1 && ROB_uops_equal_LDQ_2 &&*/ consistent_branch_masks_1 && consistent_branch_masks_2 && consistent_buffer_br_masks_1 && consistent_buffer_br_masks_2 && consistent_tail_rollback_1 && consistent_tail_rollback_2 &&
+	consistent_valid_flags_1 && consistent_valid_flags_2 && rob_idx_correctly_set && buffers_equal_ROB_1 && buffers_equal_ROB_2 && unique_write_port_addr_1 && unique_write_port_addr_2 && correct_lrs_types &&
+	regfile_addrs_in_bounds && csr_req_not_speculative_1 && csr_req_not_speculative_2 && lsu_req_uses_queue_1 && lsu_req_uses_queue_2 && lcam_ldq_idx_valid_1 && lcam_ldq_idx_valid_2 && lcam_stq_idx_valid_1 && lcam_stq_idx_valid_2 &&
+	dmem_resp_amo_1 && dmem_resp_amo_2 && ldq_consistent_rob_idx_1 && ldq_consistent_rob_idx_2 && stq_consistent_rob_idx_1 && stq_consistent_rob_idx_2 && ldq_check_invalidated_entries_1 && ldq_check_invalidated_entries_2 &&
+	stq_check_invalidated_entries_1 && stq_check_invalidated_entries_2 && lsu_req_consistent_1 && lsu_req_consistent_2 && buffers_equal_STQ_1 && buffers_equal_STQ_2 && buffers_equal_LDQ_1 && buffers_equal_LDQ_2 && committed_stores_not_speculative_1 && committed_stores_not_speculative_2 &&
+	ldq_head_empty_1 && ldq_head_empty_2 && unique_ldq_rob_idx_1 && unique_ldq_rob_idx_2 && BranchKillableQueue_pointers_valid_1 && BranchKillableQueue_pointers_valid_2 && 
+	fired_load_incoming_conflicts_1 && fired_load_incoming_conflicts_2 && fired_stad_incoming_conflicts_1 && fired_stad_incoming_conflicts_2 && fired_sta_incoming_conflicts_1 && fired_sta_incoming_conflicts_2 &&
+	fired_std_incoming_conflicts_1 && fired_std_incoming_conflicts_2 && fired_std_conflicts_1 && fired_std_conflicts_2 && fired_sfence_conflicts_1 && fired_sfence_conflicts_2 && fired_release_conflicts_1 &&
+	fired_release_conflicts_2 && fired_load_retry_conflicts_1 && fired_load_retry_conflicts_2 && fired_sta_retry_conflicts_1 && fired_sta_retry_conflicts_2 && div_state_1 && div_state_2 && jmp_unit_alu_req_uopc_1 && 
+	jmp_unit_alu_req_uopc_2 && dmem_resp_equals_s2_type_1 && dmem_resp_equals_s2_type_2 && s2_hella_matching_s2_type_1 && s2_hella_matching_s2_type_2 && speculative_store_s1_s2_1 && speculative_store_s1_s2_2 &&
+	will_fire_sfence_not_speculative_1 && will_fire_sfence_not_speculative_2 && committed_store_not_being_tainted_1 && committed_store_not_being_tainted_2 && exe_reg_0_sfence_not_speculative_1 &&
+	exe_reg_0_sfence_not_speculative_2 && rrd_op_sel_1 && rrd_op_sel_2 && rrd_no_rocc_1 && rrd_no_rocc_2 && dmem_req_amo_1 && dmem_req_amo_2 && fpu_req_uopc_1 && fpu_req_uopc_2 && fdivsqrt_req_uopc_1 && fdivsqrt_req_uopc_2 &&
+	fp_sdq_req_uopc_1 && fp_sdq_req_uopc_2 && jmp_unit_ifpu_req_uopc_1 && jmp_unit_ifpu_req_uopc_2;
+end constraint;
+
+constraint st_dep_masks :=
+	st_dep_mask_consistency;
+end constraint;
+
+property UPEC_secure_BOOM;
+	dependencies: no_reset, br_tag_in_bounds, functional_invariants, st_dep_masks, ptw_secret;
+
+	assume:
+		during[t, t+O]: blackboxing;
+
+		during[t, t+O]: secret_data_protected;
+
+		at t: state_equivalence;
+
+		at t: init_mispred_signals;
+
+		during[t, t+O]: microequivalence == 1'b1; 
+		
+		during[t, t+O]: pnr_between_head_and_root_id == 1'b1; 
+		
+		during[t, t+O]: tainted_lsu_resp_rob_idx_and_yrot_equal == 1'b1;
+		
+	prove:
+		at t+O: (!(mispred_happened_1 && mispred_happened_2) && (!root_id_killed && !root_id_already_killed) && (ROB_commit_array_1[commit_index] != ROB_commit_array_2[commit_index])) == 1'b0;
+
+end property;
+
+macro boolean tainted_exe_reg :=
+	(
+		soc1/core/iregister_read/exe_reg_uops_0_rob_idx == soc2/core/iregister_read/exe_reg_uops_0_rob_idx &&
+		(soc1/core/iregister_read/exe_reg_rs1_data_0 != soc2/core/iregister_read/exe_reg_rs1_data_0 || soc1/core/iregister_read/exe_reg_rs2_data_0 != soc2/core/iregister_read/exe_reg_rs2_data_0)
+		? soc1/core/iregister_read/exe_reg_taint_0 && soc2/core/iregister_read/exe_reg_taint_0
+		: 1'b1
+	) &&
+	(
+		soc1/core/iregister_read/exe_reg_uops_1_rob_idx == soc2/core/iregister_read/exe_reg_uops_1_rob_idx &&
+		(soc1/core/iregister_read/exe_reg_rs1_data_1 != soc2/core/iregister_read/exe_reg_rs1_data_1 || soc1/core/iregister_read/exe_reg_rs2_data_1 != soc2/core/iregister_read/exe_reg_rs2_data_1)
+		? soc1/core/iregister_read/exe_reg_taint_1 && soc2/core/iregister_read/exe_reg_taint_1
+		: 1'b1
+	) &&
+	(
+		soc1/core/iregister_read/exe_reg_uops_2_rob_idx == soc2/core/iregister_read/exe_reg_uops_2_rob_idx &&
+		(soc1/core/iregister_read/exe_reg_rs1_data_2 != soc2/core/iregister_read/exe_reg_rs1_data_2 || soc1/core/iregister_read/exe_reg_rs2_data_2 != soc2/core/iregister_read/exe_reg_rs2_data_2)
+		? soc1/core/iregister_read/exe_reg_taint_2 && soc2/core/iregister_read/exe_reg_taint_2
+		: 1'b1
+	);
+end macro;
+
+constraint ME :=
+	microequivalence;
+end constraint;
+
+macro boolean lsu_req_is_tainted :=
+	soc1/core/io_lsu_exe_0_req_bits_addr != soc2/core/io_lsu_exe_0_req_bits_addr && soc1/core/io_lsu_exe_0_req_bits_uop_rob_idx == soc2/core/io_lsu_exe_0_req_bits_uop_rob_idx
+	?
+	soc1/core/io_lsu_exe_0_req_bits_uop_taint && soc2/core/io_lsu_exe_0_req_bits_uop_taint
+	:
+	1'b1;
+end macro;
+
+property UPEC_secure_BOOM_fast_forward;
+	dependencies: no_reset, br_tag_in_bounds, functional_invariants, ME, st_dep_masks, ptw_secret;
+
+	assume:
+		during[t, t+P]: blackboxing;
+
+		during[t, t+P]: secret_data_protected;
+
+		at t: state_equivalence_fast_forward;
+
+		at t: init_mispred_signals;
+	
+		during[t, t+P]: pnr_between_head_and_root_id == 1'b1; 
+		
+		during[t, t+P]: tainted_lsu_resp_rob_idx_and_yrot_equal == 1'b1;
+		
+		during[t, t+P]: tainted_exe_reg == 1'b1;
+			
+		//if core requests different addresses, make sure they are tainted
+		during[t, t+P]: lsu_req_is_tainted;
+				
+	prove:
+
+		//at t+O: lAlert == 1'b0 /*&& lAlert_earlyAlarm == 1'b0*/;
+		at t+P: (!(mispred_happened_1 && mispred_happened_2) && (!root_id_killed && !root_id_already_killed) && (ROB_commit_array_1[commit_index] != ROB_commit_array_2[commit_index])) == 1'b0;
+
+end property;
