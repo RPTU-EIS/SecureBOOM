@@ -390,7 +390,7 @@ macro boolean ptw_access_secret_dependent :=
 end macro;
 
 macro boolean fast_forward_assumptions :=
-	tainted_exe_reg && csr_alu_r_data_non_speculative && ifpu_out_uncommittable && fp_exe_reg_yrot && ldq_tainted && int_exe_reg_yrot && /*stq_tainted &&*/ r_buffer_fin_2_fdivsqrt && rob_fflags_uncommittable && ptw_access_secret_dependent;
+	tainted_exe_reg && csr_alu_r_data_non_speculative && ifpu_out_uncommittable && fp_exe_reg_yrot && ldq_tainted && int_exe_reg_yrot && stq_tainted && r_buffer_fin_2_fdivsqrt && rob_fflags_uncommittable && ptw_access_secret_dependent;
 end macro;
 
 macro boolean state_equivalence := 
