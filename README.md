@@ -37,7 +37,7 @@ The proposed approach utilizes a generic dynamic information flow tracking infra
 The figure shows how our methodology augments a standard out-of-order execution pipeline with a generic control infrastructure for security. It consists of a generic tainting infrastructure and an
 information flow controller (IFC).
 
-![](figures/Generic_IFT_Inbfrastructure.png)
+![](figures/Generic_IFT_Infrastructure.png)
 
 #### Generic Tainting Infrastructure
 
