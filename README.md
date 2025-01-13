@@ -2,7 +2,7 @@
 
 Ever since the Spectre and Meltdown attacks proved Transient Execution Side Channels to be a fundamental vulnerability of modern processors, secure microarchitecture design is a challenge considered urgent by chipmakers. Various countermeasures against these threats were proposed on the electronic system level. However, addressing all possible attack scenarios requires the design and analysis of bit- and cycle-accurate implementations. 
 
-In our paper [Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL](https://www.uni-kl.de)[^1], we present a novel secure-by-construction RTL design methodology based on a generic information flow tracking infrastructure. The methodology uses formal verification to systematically detect possible leakage paths and to customize the generic infrastructure accordingly for the design. We propose an iterative flow that semi-automatically leads to an RTL design that is **guaranteed to be secure w.r.t. transient execution attacks**. A case study for the methodology is conducted on BOOMv3, an open-source RISC-V processor with a deep out-of-order pipeline, and the resulting secure RTL design is benchmarked on an FPGA setup. Our design outperforms a design based on conservative countermeasures, improving the incurred overhead by 3X / 4X (depending on the threat model) while maintaining the same level of security. 
+In our paper [Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL](https://ieeexplore.ieee.org/abstract/document/10323843)[^1], we present a novel secure-by-construction RTL design methodology based on a generic information flow tracking infrastructure. The methodology uses formal verification to systematically detect possible leakage paths and to customize the generic infrastructure accordingly for the design. We propose an iterative flow that semi-automatically leads to an RTL design that is **guaranteed to be secure w.r.t. transient execution attacks**. A case study for the methodology is conducted on BOOMv3, an open-source RISC-V processor with a deep out-of-order pipeline, and the resulting secure RTL design is benchmarked on an FPGA setup. Our design outperforms a design based on conservative countermeasures, improving the incurred overhead by 3X / 4X (depending on the threat model) while maintaining the same level of security. 
 
 ## The Berkeley Out-of-Order RISC-V Processor
 
@@ -102,7 +102,7 @@ A more detailed description of the employed formal verification technique can be
 
 
 [^1]: T. Jauch, A. Wezel, M. R. Fadiheh, P. Schmitz, S. Ray, J. M. Fung, C. W. Fletcher, D. Stoffel, W. Kunz:
-[Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL](https://www.uni-kl.de).
+[Secure-by-Construction Design Methodology for CPUs: Implementing Secure Speculation on the RTL](https://ieeexplore.ieee.org/abstract/document/10323843).
 In 2023 IEEE/ACM International Conference On Computer Aided Design (ICCAD) (to appear).
 
 [^2]: M. R. Fadiheh, A. Wezel, J. Mueller, J. Bormann, S. Ray, J. Fung, S. Mitra, D. Stoffel, W. Kunz: 
